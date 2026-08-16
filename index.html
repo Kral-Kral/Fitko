@@ -58,7 +58,7 @@
         /* OKNO PRO SPRÁVU CVIKŮ */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 100; justify-content: center; align-items: center; padding: 16px; }
         .modal-content { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; width: 100%; max-width: 500px; max-height: 80vh; overflow-y: auto; }
-        .modal-list-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-color); }
+        .modal-list-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-color); gap: 8px; }
     </style>
 </head>
 <body>
@@ -103,14 +103,15 @@
                 </div>
             </div>
 
+            <!-- VÝBĚR CVIKU ZE ZÁSOBNÍKU PARIÍ -->
             <div class="add-exercise-bar">
                 <select id="exercise-select">
-                    <option value="">-- Vybrat cvik --</option>
+                    <option value="">-- Vybrat cvik ze zásobníku --</option>
                 </select>
                 <button class="btn" onclick="addSelectedExercise()">+ Přidat</button>
             </div>
             
-            <button class="btn btn-secondary btn-sm" style="width:100%; margin-bottom:16px;" onclick="openManagerModal()">⚙️ Upravit seznam cviků</button>
+            <button class="btn btn-secondary btn-sm" style="width:100%; margin-bottom:16px;" onclick="openManagerModal()">⚙️ Upravit zásobník cviků</button>
 
             <div id="exercises-container"></div>
 
@@ -121,57 +122,100 @@
         </div>
     </div>
 
-    <!-- SPRÁVA CVIKŮ OVERLAY -->
+    <!-- SPRÁVA ZÁSOBNÍKU CVIKŮ OVERLAY -->
     <div id="manager-modal" class="modal-overlay">
         <div class="modal-content">
-            <h3 style="margin-bottom:12px; color: var(--accent);">Správa seznamu cviků</h3>
-            <div style="display:flex; gap:8px; margin-bottom:16px;">
-                <input type="text" id="new-exercise-input" placeholder="Název nového cviku..." style="margin-bottom:0;">
-                <button class="btn btn-sm" onclick="addNewExercise()">Přidat</button>
+            <h3 style="margin-bottom:12px; color: var(--accent);">Správa zásobníku cviků</h3>
+            
+            <div style="margin-bottom:16px; background:#0f172a; padding:12px; border-radius:8px; border:1px solid var(--border-color);">
+                <label style="font-size:0.8rem; color:var(--text-muted); display:block; margin-bottom:4px;">Přidat nový cvik do partie:</label>
+                <select id="new-exercise-category" style="margin-bottom:8px;">
+                    <option value="Prsa">Prsa</option>
+                    <option value="Záda">Záda</option>
+                    <option value="Ramena">Ramena</option>
+                    <option value="Biceps">Biceps</option>
+                    <option value="Triceps">Triceps</option>
+                    <option value="Kvadricepsy">Kvadricepsy</option>
+                    <option value="Hamstringy & Hýždě">Hamstringy & Hýždě</option>
+                    <option value="Lýtka & Břicho">Lýtka & Břicho</option>
+                </select>
+                <div style="display:flex; gap:8px;">
+                    <input type="text" id="new-exercise-input" placeholder="Název cviku..." style="margin-bottom:0;">
+                    <button class="btn btn-sm" onclick="addNewExercise()">Přidat</button>
+                </div>
             </div>
+
             <div id="exercise-manager-list"></div>
             <button class="btn btn-secondary" style="width:100%; margin-top:16px;" onclick="closeManagerModal()">Zavřít</button>
         </div>
     </div>
 
     <script>
-        const DEFAULT_EXERCISES = [
-            "Bench Press", "Incline Dumbbell Press", "Lat Pulldown", "Barbell Row",
-            "Overhead Press", "Lateral Raise", "Barbell Squat", "Leg Press",
-            "Romanian Deadlift", "Leg Curl", "Biceps Curl", "Triceps Extension"
-        ];
+        // VÝCHOZÍ MAPOVÁNÍ PARTIÍ A ZÁSOBNÍKŮ CVIKŮ
+        const WORKOUT_PARTIES_MAP = {
+            "UPPER": ["Prsa", "Záda", "Ramena", "Biceps", "Triceps"],
+            "LOWER": ["Kvadricepsy", "Hamstringy & Hýždě", "Lýtka & Břicho"],
+            "FULL BODY": ["Prsa", "Záda", "Ramena", "Biceps", "Triceps", "Kvadricepsy", "Hamstringy & Hýždě", "Lýtka & Břicho"],
+            "PUSH": ["Prsa", "Ramena", "Triceps"],
+            "PULL": ["Záda", "Biceps"],
+            "LEGS": ["Kvadricepsy", "Hamstringy & Hýždě", "Lýtka & Břicho"]
+        };
 
-        let exerciseList = [];
+        const DEFAULT_EXERCISES_DATABASE = {
+            "Prsa": ["Bench Press", "Incline Dumbbell Press", "Chest Flyes / Peck Deck"],
+            "Záda": ["Lat Pulldown", "Barbell Row", "Cable Row"],
+            "Ramena": ["Overhead Press", "Lateral Raise", "Face Pull"],
+            "Biceps": ["Barbell Biceps Curl", "Hammer Curl"],
+            "Triceps": ["Triceps Pushdown", "French Press"],
+            "Kvadricepsy": ["Barbell Squat", "Leg Press", "Leg Extension"],
+            "Hamstringy & Hýždě": ["Romanian Deadlift", "Lying Leg Curl", "Hip Thrust"],
+            "Lýtka & Břicho": ["Calf Raise", "Abdominal Crunch"]
+        };
+
+        let exerciseDatabase = {};
         let currentWorkout = null;
         let mainInterval = null;
 
         window.onload = function() {
-            loadExerciseList();
+            loadExerciseDatabase();
         };
 
-        function loadExerciseList() {
-            const saved = localStorage.getItem("gym_exercise_list");
+        function loadExerciseDatabase() {
+            const saved = localStorage.getItem("gym_exercise_db");
             if (saved) {
-                try { exerciseList = JSON.parse(saved); } catch(e) { exerciseList = [...DEFAULT_EXERCISES]; }
+                try { exerciseDatabase = JSON.parse(saved); } catch(e) { exerciseDatabase = JSON.parse(JSON.stringify(DEFAULT_EXERCISES_DATABASE)); }
             } else {
-                exerciseList = [...DEFAULT_EXERCISES];
+                exerciseDatabase = JSON.parse(JSON.stringify(DEFAULT_EXERCISES_DATABASE));
             }
-            populateDropdown();
         }
 
-        function saveExerciseList() {
-            localStorage.setItem("gym_exercise_list", JSON.stringify(exerciseList));
+        function saveExerciseDatabase() {
+            localStorage.setItem("gym_exercise_db", JSON.stringify(exerciseDatabase));
             populateDropdown();
         }
 
         function populateDropdown() {
+            if (!currentWorkout) return;
+
             const select = document.getElementById("exercise-select");
-            select.innerHTML = '<option value="">-- Vybrat cvik --</option>';
-            exerciseList.forEach(ex => {
-                const opt = document.createElement("option");
-                opt.value = ex;
-                opt.textContent = ex;
-                select.appendChild(opt);
+            select.innerHTML = '<option value="">-- Vybrat cvik ze zásobníku --</option>';
+
+            const relevantParties = WORKOUT_PARTIES_MAP[currentWorkout.type] || [];
+
+            relevantParties.forEach(partia => {
+                const exercises = exerciseDatabase[partia] || [];
+                if (exercises.length > 0) {
+                    const optgroup = document.createElement("optgroup");
+                    optgroup.label = `--- ${partia.toUpperCase()} ---`;
+
+                    exercises.forEach(ex => {
+                        const opt = document.createElement("option");
+                        opt.value = ex;
+                        opt.textContent = ex;
+                        optgroup.appendChild(opt);
+                    });
+                    select.appendChild(optgroup);
+                }
             });
         }
 
@@ -187,31 +231,51 @@
         function renderManagerList() {
             const container = document.getElementById("exercise-manager-list");
             container.innerHTML = "";
-            exerciseList.forEach((ex, idx) => {
-                const item = document.createElement("div");
-                item.className = "modal-list-item";
-                item.innerHTML = `
-                    <span>${ex}</span>
-                    <button class="btn btn-sm btn-danger" onclick="deleteExerciseFromList(${idx})">Smazat</button>
-                `;
-                container.appendChild(item);
+
+            Object.keys(exerciseDatabase).forEach(partia => {
+                const partiaTitle = document.createElement("h4");
+                partiaTitle.style.cssText = "color: var(--accent); margin-top: 12px; margin-bottom: 6px; border-bottom: 1px solid var(--border-color);";
+                partiaTitle.innerText = partia;
+                container.appendChild(partiaTitle);
+
+                exerciseDatabase[partia].forEach((ex, idx) => {
+                    const item = document.createElement("div");
+                    item.className = "modal-list-item";
+                    item.innerHTML = `
+                        <input type="text" value="${ex}" onchange="updateExerciseName('${partia}', ${idx}, this.value)" style="margin-bottom:0; padding:4px 8px;">
+                        <button class="btn btn-sm btn-danger" onclick="deleteExerciseFromDb('${partia}', ${idx})">Smazat</button>
+                    `;
+                    container.appendChild(item);
+                });
             });
         }
 
-        function addNewExercise() {
-            const input = document.getElementById("new-exercise-input");
-            const val = input.value.trim();
-            if (val && !exerciseList.includes(val)) {
-                exerciseList.push(val);
-                saveExerciseList();
-                renderManagerList();
-                input.value = "";
+        function updateExerciseName(partia, idx, newName) {
+            if (newName.trim() !== "") {
+                exerciseDatabase[partia][idx] = newName.trim();
+                saveExerciseDatabase();
             }
         }
 
-        function deleteExerciseFromList(idx) {
-            exerciseList.splice(idx, 1);
-            saveExerciseList();
+        function addNewExercise() {
+            const category = document.getElementById("new-exercise-category").value;
+            const input = document.getElementById("new-exercise-input");
+            const val = input.value.trim();
+
+            if (val) {
+                if (!exerciseDatabase[category]) exerciseDatabase[category] = [];
+                if (!exerciseDatabase[category].includes(val)) {
+                    exerciseDatabase[category].push(val);
+                    saveExerciseDatabase();
+                    renderManagerList();
+                    input.value = "";
+                }
+            }
+        }
+
+        function deleteExerciseFromDb(partia, idx) {
+            exerciseDatabase[partia].splice(idx, 1);
+            saveExerciseDatabase();
             renderManagerList();
         }
 
@@ -234,6 +298,8 @@
             document.getElementById("workout-active").style.display = "block";
             document.getElementById("timer").style.display = "inline-block";
             document.getElementById("panel-title").innerText = "Aktivní: " + currentWorkout.type;
+            
+            populateDropdown();
             renderWorkoutExercises();
             startEngine();
         }
