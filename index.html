@@ -385,6 +385,9 @@
             if (saved) {
                 try {
                     currentWorkout = JSON.parse(saved);
+                    if (typeof currentWorkout.isResting === "undefined") currentWorkout.isResting = false;
+                    if (typeof currentWorkout.restStartTimestamp === "undefined") currentWorkout.restStartTimestamp = null;
+                    if (typeof currentWorkout.totalRestSeconds === "undefined") currentWorkout.totalRestSeconds = 0;
                     uiStartWorkout();
                 } catch(e) {
                     localStorage.removeItem("gym_active_workout");
@@ -518,7 +521,10 @@
                 id: now,
                 type: type,
                 startTime: new Date(now).toISOString(),
-                lastSetTimestamp: now,
+                // Trénink začíná v klidové/přípravné fázi - pauza běží,
+                // dokud uživatel poprvé nezačne skutečně cvičit (zadávat data).
+                isResting: true,
+                restStartTimestamp: now,
                 totalRestSeconds: 0,
                 exercises: []
             };
@@ -549,15 +555,30 @@
             }
         }
 
-        function triggerSetCompletion() {
+        // Spustí počítání pauzy - voláno jen po explicitní akci "sérii jsem
+        // dokončil" (klik na "+ Přidat sérii" / "+ Přidat cvik"), nikdy jen
+        // kvůli obsahu polí (ten může být zavádějící kvůli předvyplnění).
+        function startResting() {
             if (!currentWorkout) return;
-            const now = Date.now();
-            const restDuration = Math.floor((now - currentWorkout.lastSetTimestamp) / 1000);
-            if (restDuration > 0) {
-                currentWorkout.totalRestSeconds = (currentWorkout.totalRestSeconds || 0) + restDuration;
+            if (!currentWorkout.isResting) {
+                currentWorkout.isResting = true;
+                currentWorkout.restStartTimestamp = Date.now();
+                persistCurrentWorkout();
             }
-            currentWorkout.lastSetTimestamp = now;
-            persistCurrentWorkout();
+        }
+
+        // Ukončí počítání pauzy - voláno při jakékoli skutečné aktivitě
+        // (psaní do pole váha/opakování).
+        function stopResting() {
+            if (!currentWorkout) return;
+            if (currentWorkout.isResting && currentWorkout.restStartTimestamp) {
+                const now = Date.now();
+                const elapsed = Math.floor((now - currentWorkout.restStartTimestamp) / 1000);
+                currentWorkout.totalRestSeconds = (currentWorkout.totalRestSeconds || 0) + Math.max(0, elapsed);
+                currentWorkout.isResting = false;
+                currentWorkout.restStartTimestamp = null;
+                persistCurrentWorkout();
+            }
         }
 
         function calculateBurnedCalories(netTimeSeconds) {
@@ -575,9 +596,12 @@
                 const now = Date.now();
                 const start = new Date(currentWorkout.startTime).getTime();
                 const totalSec = Math.floor((now - start) / 1000);
-                const currentRestSec = Math.floor((now - currentWorkout.lastSetTimestamp) / 1000);
-                const accumulatedRestSec = (currentWorkout.totalRestSeconds || 0) + currentRestSec;
-                const netSec = Math.max(0, totalSec - accumulatedRestSec);
+
+                const currentRestSec = currentWorkout.isResting && currentWorkout.restStartTimestamp
+                    ? Math.floor((now - currentWorkout.restStartTimestamp) / 1000)
+                    : 0;
+                const totalRestDisplay = (currentWorkout.totalRestSeconds || 0) + currentRestSec;
+                const netSec = Math.max(0, totalSec - totalRestDisplay);
 
                 document.getElementById("timer").innerText = formatSeconds(totalSec);
                 document.getElementById("current-rest-display").innerText = formatMMSS(currentRestSec);
@@ -635,6 +659,10 @@
         }
 
         async function addExerciseToWorkout(exerciseName) {
+            // Výběr nového cviku = aktivní chvíle (rozhoduješ se, díváš se
+            // na historii) - pauza se zastavuje.
+            stopResting();
+
             const history = await fetchLastPerformance(exerciseName);
             
             const newEx = {
@@ -739,13 +767,19 @@
         }
 
         function updateSet(exIdx, setIdx, field, value) {
+            // Psaní do pole = aktivní cvičení - pauza se zastavuje.
+            stopResting();
+
             currentWorkout.exercises[exIdx].sets[setIdx][field] = value;
-            triggerSetCompletion();
+            persistCurrentWorkout();
             renderWorkoutExercises();
         }
 
         function addSet(exIdx) {
-            triggerSetCompletion();
+            // Přidání nové (prázdné) série znamená, že předchozí sérii máš
+            // hotovou a začínáš odpočívat před další.
+            startResting();
+
             const lastSet = currentWorkout.exercises[exIdx].sets.slice(-1)[0];
             currentWorkout.exercises[exIdx].sets.push({ 
                 weight: lastSet ? lastSet.weight : "", 
@@ -770,7 +804,7 @@
         async function finishWorkout() {
             if (!confirm("Ukončit trénink a odeslat?")) return;
 
-            triggerSetCompletion();
+            stopResting();
             clearInterval(mainInterval);
             
             const now = new Date();
@@ -888,3 +922,4 @@
         }
     </script>
 </body>
+</html>
