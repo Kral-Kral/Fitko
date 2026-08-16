@@ -217,6 +217,7 @@
     </div>
 
     <script>
+        // --- VYPLŇTE VAŠI URL ADRESU Z GOOGLE APPS SCRIPTU ---
         const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyVVH2RfLKLr8dFEPR4ssTzk5V7LH3jcNLF1VF2qj98g8d4ktscL0CVvoW4w_G1rj_a/exec";
 
         const WORKOUT_PARTIES_MAP = {
@@ -273,7 +274,7 @@
             calculateBMR();
         }
 
-        function saveProfileData() {
+        async function saveProfileData() {
             userProfile = {
                 gender: document.getElementById("prof-gender").value,
                 age: Number(document.getElementById("prof-age").value) || 25,
@@ -282,6 +283,23 @@
                 activity: Number(document.getElementById("prof-activity").value) || 1.55
             };
             localStorage.setItem("gym_user_profile", JSON.stringify(userProfile));
+
+            // Uložení váhy do Google Tabulky
+            if (navigator.onLine && GOOGLE_SCRIPT_URL) {
+                try {
+                    await fetch(GOOGLE_SCRIPT_URL, {
+                        method: "POST",
+                        mode: "no-cors",
+                        headers: { "Content-Type": "text/plain;charset=utf-8" },
+                        body: JSON.stringify({
+                            action: "updateWeight",
+                            weight: userProfile.weight,
+                            source: "Aplikace Profil"
+                        })
+                    });
+                } catch(e){}
+            }
+
             closeProfileModal();
         }
 
@@ -509,7 +527,7 @@
 
         function calculateBurnedCalories(netTimeSeconds) {
             const weightKg = userProfile.weight || 80;
-            const met = 5.5; // Průměrná intenzita silového tréninku
+            const met = 5.5; // Střední až vyšší intenzita silového tréninku
             const hours = netTimeSeconds / 3600;
             const calories = met * weightKg * hours;
             return Math.round(calories);
@@ -563,7 +581,7 @@
         }
 
         async function fetchLastPerformance(exerciseName) {
-            if (!navigator.onLine) return null;
+            if (!navigator.onLine || !GOOGLE_SCRIPT_URL) return null;
             try {
                 const res = await fetch(`${GOOGLE_SCRIPT_URL}?action=getLastPerformance&exercise=${encodeURIComponent(exerciseName)}`);
                 const data = await res.json();
@@ -767,7 +785,7 @@
             currentWorkout = null;
             persistCurrentWorkout();
 
-            if (navigator.onLine) {
+            if (navigator.onLine && GOOGLE_SCRIPT_URL) {
                 const success = await sendDataToGoogle(dataToSend);
                 if (success) {
                     alert("Trénink byl úspěšně odeslán do Google Tabulek!");
@@ -807,7 +825,7 @@
         }
 
         async function processPendingQueue() {
-            if (!navigator.onLine) return;
+            if (!navigator.onLine || !GOOGLE_SCRIPT_URL) return;
 
             const queue = JSON.parse(localStorage.getItem("gym_pending_queue") || "[]");
             if (queue.length === 0) return;
