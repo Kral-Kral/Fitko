@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gym Workout Log</title>
-    <!-- Knihovna pro export do Excelu (.xlsx) -->
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         :root {
             --bg-color: #0f172a;
@@ -17,6 +15,7 @@
             --border-color: #334155;
             --danger: #ef4444;
             --warning: #f59e0b;
+            --success: #22c55e;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
@@ -30,6 +29,8 @@
         .btn { background-color: var(--accent); color: #0f172a; font-weight: 600; border: none; padding: 10px 16px; border-radius: 8px; cursor: pointer; font-size: 0.95rem; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
         .btn:hover { background-color: var(--accent-hover); color: #fff; }
         .btn-secondary { background-color: #334155; color: #fff; }
+        .btn-success { background-color: #15803d; color: #fff; }
+        .btn-success:hover { background-color: var(--success); }
         .btn-danger { background-color: #451a1a; color: var(--danger); border: 1px solid var(--danger); }
         .btn-danger:hover { background-color: var(--danger); color: white; }
         .btn-sm { padding: 6px 10px; font-size: 0.8rem; }
@@ -50,12 +51,11 @@
         .sets-table th { color: var(--text-muted); border-bottom: 1px solid var(--border-color); }
         .sets-table input { margin-bottom: 0; padding: 6px; text-align: center; }
 
-        .add-exercise-bar { display: flex; gap: 8px; margin-bottom: 12px; }
+        .add-exercise-bar { display: flex; gap: 8px; margin-bottom: 8px; }
         .add-exercise-bar select { margin-bottom: 0; flex: 1; }
 
         .actions-bar { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
 
-        /* OKNO PRO SPRÁVU CVIKŮ */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 100; justify-content: center; align-items: center; padding: 16px; }
         .modal-content { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; width: 100%; max-width: 500px; max-height: 80vh; overflow-y: auto; }
         .modal-list-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-color); gap: 8px; }
@@ -103,7 +103,6 @@
                 </div>
             </div>
 
-            <!-- VÝBĚR CVIKU ZE ZÁSOBNÍKU PARIÍ -->
             <div class="add-exercise-bar">
                 <select id="exercise-select">
                     <option value="">-- Vybrat cvik ze zásobníku --</option>
@@ -111,65 +110,78 @@
                 <button class="btn" onclick="addSelectedExercise()">+ Přidat</button>
             </div>
             
-            <button class="btn btn-secondary btn-sm" style="width:100%; margin-bottom:16px;" onclick="openManagerModal()">⚙️ Upravit zásobník cviků</button>
+            <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+                <button class="btn btn-success btn-sm" style="flex: 1;" onclick="openAddModal()">➕ Přidat nový cvik do databáze</button>
+                <button class="btn btn-secondary btn-sm" style="flex: 1;" onclick="openManagerModal()">⚙️ Upravit seznam</button>
+            </div>
 
             <div id="exercises-container"></div>
 
             <div class="actions-bar">
                 <button class="btn btn-secondary" onclick="cancelWorkout()">← Zpět do menu</button>
-                <button class="btn btn-danger" style="flex: 1;" onclick="finishWorkout()">🏁 Ukončit & Uložit do Excelu</button>
+                <button class="btn btn-danger" style="flex: 1;" onclick="finishWorkout()">🏁 Ukončit & Odeslat do Google Tabulek</button>
             </div>
         </div>
     </div>
 
-    <!-- SPRÁVA ZÁSOBNÍKU CVIKŮ OVERLAY -->
+    <!-- MODAL: RYCHLÉ PŘIDÁNÍ CVIKU -->
+    <div id="add-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 style="margin-bottom:12px; color: var(--accent);">Přidat nový cvik</h3>
+            <label style="font-size:0.8rem; color:var(--text-muted); display:block; margin-bottom:4px;">Vyberte partii:</label>
+            <select id="quick-add-category">
+                <option value="Prsa">Prsa</option>
+                <option value="Záda">Záda</option>
+                <option value="Ramena">Ramena</option>
+                <option value="Biceps">Biceps</option>
+                <option value="Triceps">Triceps</option>
+                <option value="Kvadry">Kvadry</option>
+                <option value="Hamstringy">Hamstringy</option>
+                <option value="Zadek">Zadek</option>
+                <option value="Lýtka">Lýtka</option>
+                <option value="Břicho">Břicho</option>
+            </select>
+            <input type="text" id="quick-add-input" placeholder="Název cviku...">
+            <div style="display:flex; gap:8px;">
+                <button class="btn btn-secondary" style="flex:1;" onclick="closeAddModal()">Zrušit</button>
+                <button class="btn btn-success" style="flex:1;" onclick="quickAddNewExercise()">Uložit cvik</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: SPRÁVA A ÚPRAVA EXISTUJÍCÍCH CVIKŮ -->
     <div id="manager-modal" class="modal-overlay">
         <div class="modal-content">
-            <h3 style="margin-bottom:12px; color: var(--accent);">Správa zásobníku cviků</h3>
-            
-            <div style="margin-bottom:16px; background:#0f172a; padding:12px; border-radius:8px; border:1px solid var(--border-color);">
-                <label style="font-size:0.8rem; color:var(--text-muted); display:block; margin-bottom:4px;">Přidat nový cvik do partie:</label>
-                <select id="new-exercise-category" style="margin-bottom:8px;">
-                    <option value="Prsa">Prsa</option>
-                    <option value="Záda">Záda</option>
-                    <option value="Ramena">Ramena</option>
-                    <option value="Biceps">Biceps</option>
-                    <option value="Triceps">Triceps</option>
-                    <option value="Kvadricepsy">Kvadricepsy</option>
-                    <option value="Hamstringy & Hýždě">Hamstringy & Hýždě</option>
-                    <option value="Lýtka & Břicho">Lýtka & Břicho</option>
-                </select>
-                <div style="display:flex; gap:8px;">
-                    <input type="text" id="new-exercise-input" placeholder="Název cviku..." style="margin-bottom:0;">
-                    <button class="btn btn-sm" onclick="addNewExercise()">Přidat</button>
-                </div>
-            </div>
-
+            <h3 style="margin-bottom:12px; color: var(--accent);">Správa a úprava cviků</h3>
             <div id="exercise-manager-list"></div>
             <button class="btn btn-secondary" style="width:100%; margin-top:16px;" onclick="closeManagerModal()">Zavřít</button>
         </div>
     </div>
 
     <script>
-        // VÝCHOZÍ MAPOVÁNÍ PARTIÍ A ZÁSOBNÍKŮ CVIKŮ
+        // PROPOJENÍ S GOOGLE APPS SCRIPT
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyUtDIViOtXMExmqOumdP0RkH7AOZ0UhfTW77N2g7xcVRQKbhiekgbVAyWZQ-Ex2eTwkA/exec";
+
         const WORKOUT_PARTIES_MAP = {
             "UPPER": ["Prsa", "Záda", "Ramena", "Biceps", "Triceps"],
-            "LOWER": ["Kvadricepsy", "Hamstringy & Hýždě", "Lýtka & Břicho"],
-            "FULL BODY": ["Prsa", "Záda", "Ramena", "Biceps", "Triceps", "Kvadricepsy", "Hamstringy & Hýždě", "Lýtka & Břicho"],
+            "LOWER": ["Kvadry", "Hamstringy", "Zadek", "Lýtka", "Břicho"],
+            "FULL BODY": ["Prsa", "Záda", "Ramena", "Biceps", "Triceps", "Kvadry", "Hamstringy", "Zadek", "Lýtka", "Břicho"],
             "PUSH": ["Prsa", "Ramena", "Triceps"],
             "PULL": ["Záda", "Biceps"],
-            "LEGS": ["Kvadricepsy", "Hamstringy & Hýždě", "Lýtka & Břicho"]
+            "LEGS": ["Kvadry", "Hamstringy", "Zadek", "Lýtka"]
         };
 
         const DEFAULT_EXERCISES_DATABASE = {
-            "Prsa": ["Bench Press", "Incline Dumbbell Press", "Chest Flyes / Peck Deck"],
-            "Záda": ["Lat Pulldown", "Barbell Row", "Cable Row"],
-            "Ramena": ["Overhead Press", "Lateral Raise", "Face Pull"],
-            "Biceps": ["Barbell Biceps Curl", "Hammer Curl"],
-            "Triceps": ["Triceps Pushdown", "French Press"],
-            "Kvadricepsy": ["Barbell Squat", "Leg Press", "Leg Extension"],
-            "Hamstringy & Hýždě": ["Romanian Deadlift", "Lying Leg Curl", "Hip Thrust"],
-            "Lýtka & Břicho": ["Calf Raise", "Abdominal Crunch"]
+            "Prsa": ["Bench Press", "Incline Dumbbell Press", "Chest Flyes", "Incline Smith Machine Press", "Dips"],
+            "Záda": ["Lat Pulldown", "Barbell Row", "Cable Row", "Pull-Ups", "T-Bar Row"],
+            "Ramena": ["Overhead Press", "Lateral Raise", "Face Pull", "Dumbbell Shoulder Press", "Reverse Flyes"],
+            "Biceps": ["Barbell Biceps Curl", "Hammer Curl", "Preacher Curl", "Incline Dumbbell Curl"],
+            "Triceps": ["Triceps Pushdown", "French Press", "Skullcrusher", "Overhead Cable Extension"],
+            "Kvadry": ["Barbell Squat", "Leg Press", "Leg Extension", "Hack Squat"],
+            "Hamstringy": ["Romanian Deadlift", "Lying Leg Curl", "Seated Leg Curl"],
+            "Zadek": ["Hip Thrust", "Glute Cable Kickback"],
+            "Lýtka": ["Standing Calf Raise", "Seated Calf Raise"],
+            "Břicho": ["Abdominal Crunch", "Hanging Leg Raise", "Plank"]
         };
 
         let exerciseDatabase = {};
@@ -181,7 +193,7 @@
         };
 
         function loadExerciseDatabase() {
-            const saved = localStorage.getItem("gym_exercise_db");
+            const saved = localStorage.getItem("gym_exercise_db_v2");
             if (saved) {
                 try { exerciseDatabase = JSON.parse(saved); } catch(e) { exerciseDatabase = JSON.parse(JSON.stringify(DEFAULT_EXERCISES_DATABASE)); }
             } else {
@@ -190,7 +202,7 @@
         }
 
         function saveExerciseDatabase() {
-            localStorage.setItem("gym_exercise_db", JSON.stringify(exerciseDatabase));
+            localStorage.setItem("gym_exercise_db_v2", JSON.stringify(exerciseDatabase));
             populateDropdown();
         }
 
@@ -217,6 +229,36 @@
                     select.appendChild(optgroup);
                 }
             });
+        }
+
+        function openAddModal() {
+            document.getElementById("quick-add-input").value = "";
+            document.getElementById("add-modal").style.display = "flex";
+        }
+
+        function closeAddModal() {
+            document.getElementById("add-modal").style.display = "none";
+        }
+
+        function quickAddNewExercise() {
+            const category = document.getElementById("quick-add-category").value;
+            const input = document.getElementById("quick-add-input");
+            const val = input.value.trim();
+
+            if (val) {
+                if (!exerciseDatabase[category]) exerciseDatabase[category] = [];
+                if (!exerciseDatabase[category].includes(val)) {
+                    exerciseDatabase[category].push(val);
+                    saveExerciseDatabase();
+                    
+                    currentWorkout.exercises.push({
+                        name: val,
+                        sets: [{ weight: "", reps: "" }]
+                    });
+                    renderWorkoutExercises();
+                }
+                closeAddModal();
+            }
         }
 
         function openManagerModal() {
@@ -254,22 +296,6 @@
             if (newName.trim() !== "") {
                 exerciseDatabase[partia][idx] = newName.trim();
                 saveExerciseDatabase();
-            }
-        }
-
-        function addNewExercise() {
-            const category = document.getElementById("new-exercise-category").value;
-            const input = document.getElementById("new-exercise-input");
-            const val = input.value.trim();
-
-            if (val) {
-                if (!exerciseDatabase[category]) exerciseDatabase[category] = [];
-                if (!exerciseDatabase[category].includes(val)) {
-                    exerciseDatabase[category].push(val);
-                    saveExerciseDatabase();
-                    renderManagerList();
-                    input.value = "";
-                }
             }
         }
 
@@ -435,8 +461,8 @@
             renderWorkoutExercises();
         }
 
-        function finishWorkout() {
-            if (!confirm("Ukončit trénink a stáhnout Excel?")) return;
+        async function finishWorkout() {
+            if (!confirm("Ukončit trénink a odeslat do Google Tabulek?")) return;
 
             triggerSetCompletion();
             clearInterval(mainInterval);
@@ -447,56 +473,62 @@
             const restSec = currentWorkout.totalRestSeconds || 0;
             const netSec = Math.max(0, totalSec - restSec);
 
-            exportToExcel(start, now, totalSec, netSec, restSec);
+            const dataToSend = [];
+
+            currentWorkout.exercises.forEach(ex => {
+                ex.sets.forEach((set, i) => {
+                    if (set.weight !== "" || set.reps !== "") {
+                        dataToSend.push({
+                            datum: start.toLocaleDateString("cs-CZ"),
+                            casZacatku: start.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                            casKonce: now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                            typTreninku: currentWorkout.type,
+                            cvik: ex.name,
+                            serie: i + 1,
+                            vaha: Number(set.weight) || 0,
+                            opakovani: Number(set.reps) || 0,
+                            celkovyCas: formatSeconds(totalSec),
+                            cistyCas: formatSeconds(netSec),
+                            celkovyCasPauz: formatSeconds(restSec)
+                        });
+                    }
+                });
+            });
+
+            if (dataToSend.length === 0) {
+                dataToSend.push({
+                    datum: start.toLocaleDateString("cs-CZ"),
+                    casZacatku: start.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                    casKonce: now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                    typTreninku: currentWorkout.type,
+                    cvik: "Bez zapsaných sérií",
+                    serie: 0,
+                    vaha: 0,
+                    opakovani: 0,
+                    celkovyCas: formatSeconds(totalSec),
+                    cistyCas: formatSeconds(netSec),
+                    celkovyCasPauz: formatSeconds(restSec)
+                });
+            }
+
+            try {
+                await fetch(GOOGLE_SCRIPT_URL, {
+                    method: "POST",
+                    mode: "no-cors",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ rows: dataToSend })
+                });
+
+                alert("Trénink byl úspěšně zapsán do Google Tabulek!");
+            } catch (err) {
+                alert("Chyba při odesílání do Google Tabulek: " + err);
+            }
 
             currentWorkout = null;
             document.getElementById("workout-active").style.display = "none";
             document.getElementById("workout-setup").style.display = "block";
             document.getElementById("timer").style.display = "none";
             document.getElementById("panel-title").innerText = "Zahájit trénink";
-
-            alert("Trénink dokončen a Excel soubor byl stažen!");
-        }
-
-        function exportToExcel(start, end, totalSec, netSec, restSec) {
-            const excelRows = [];
-            currentWorkout.exercises.forEach(ex => {
-                ex.sets.forEach((set, i) => {
-                    if (set.weight !== "" || set.reps !== "") {
-                        excelRows.push({
-                            "Datum": start.toLocaleDateString("cs-CZ"),
-                            "Čas začátku": start.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-                            "Čas konce": end.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-                            "Typ tréninku": currentWorkout.type,
-                            "Cvik": ex.name,
-                            "Série": i + 1,
-                            "Váha (kg)": Number(set.weight) || 0,
-                            "Opakování": Number(set.reps) || 0,
-                            "Celkový čas": formatSeconds(totalSec),
-                            "Čistý čas cvičení": formatSeconds(netSec),
-                            "Celkový čas pauz": formatSeconds(restSec)
-                        });
-                    }
-                });
-            });
-
-            if (excelRows.length === 0) {
-                excelRows.push({
-                    "Datum": start.toLocaleDateString("cs-CZ"),
-                    "Typ tréninku": currentWorkout.type,
-                    "Celkový čas": formatSeconds(totalSec),
-                    "Čistý čas cvičení": formatSeconds(netSec),
-                    "Celkový čas pauz": formatSeconds(restSec),
-                    "Poznámka": "Bez zapsaných sérií"
-                });
-            }
-
-            const worksheet = XLSX.utils.json_to_sheet(excelRows);
-            const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "Tréninkový Log");
-
-            const fileName = `Trenink_${currentWorkout.type}_${start.toISOString().slice(0,10)}.xlsx`;
-            XLSX.writeFile(workbook, fileName);
         }
     </script>
 </body>
