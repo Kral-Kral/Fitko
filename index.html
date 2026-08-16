@@ -56,6 +56,8 @@
 
         .actions-bar { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
 
+        .offline-banner { background-color: var(--warning); color: #000; text-align: center; padding: 6px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; margin-bottom: 12px; display: none; }
+
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 100; justify-content: center; align-items: center; padding: 16px; }
         .modal-content { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; width: 100%; max-width: 500px; max-height: 80vh; overflow-y: auto; }
         .modal-list-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-color); gap: 8px; }
@@ -66,6 +68,8 @@
     <header>
         <h1>TRÉNINKOVÝ DENÍK</h1>
     </header>
+
+    <div id="offline-status" class="offline-banner">⚠️ Jste v offline režimu. Data se ukládají v telefonu a odešlou se po připojení.</div>
 
     <div class="card">
         <div class="card-title">
@@ -87,7 +91,6 @@
         </div>
 
         <div id="workout-active" style="display: none;">
-            
             <div class="status-box">
                 <div>
                     <span class="status-label">Aktuální pauza</span>
@@ -118,8 +121,8 @@
             <div id="exercises-container"></div>
 
             <div class="actions-bar">
-                <button class="btn btn-secondary" onclick="cancelWorkout()">← Zpět do menu</button>
-                <button class="btn btn-danger" style="flex: 1;" onclick="finishWorkout()">🏁 Ukončit & Odeslat do Google Tabulek</button>
+                <button class="btn btn-secondary" onclick="cancelWorkout()">← Zrušit trénink</button>
+                <button class="btn btn-danger" style="flex: 1;" onclick="finishWorkout()">🏁 Ukončit & Odeslat</button>
             </div>
         </div>
     </div>
@@ -159,7 +162,6 @@
     </div>
 
     <script>
-        // PROPOJENÍ S GOOGLE APPS SCRIPT (vložené vaše nové ID)
         const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyVVH2RfLKLr8dFEPR4ssTzk5V7LH3jcNLF1VF2qj98g8d4ktscL0CVvoW4w_G1rj_a/exec";
 
         const WORKOUT_PARTIES_MAP = {
@@ -190,7 +192,45 @@
 
         window.onload = function() {
             loadExerciseDatabase();
+            checkOnlineStatus();
+            restoreActiveWorkout();
+            processPendingQueue();
+
+            window.addEventListener('online', () => {
+                checkOnlineStatus();
+                processPendingQueue();
+            });
+            window.addEventListener('offline', checkOnlineStatus);
         };
+
+        function checkOnlineStatus() {
+            const banner = document.getElementById("offline-status");
+            if (!navigator.onLine) {
+                banner.style.display = "block";
+            } else {
+                banner.style.display = "none";
+            }
+        }
+
+        function persistCurrentWorkout() {
+            if (currentWorkout) {
+                localStorage.setItem("gym_active_workout", JSON.stringify(currentWorkout));
+            } else {
+                localStorage.removeItem("gym_active_workout");
+            }
+        }
+
+        function restoreActiveWorkout() {
+            const saved = localStorage.getItem("gym_active_workout");
+            if (saved) {
+                try {
+                    currentWorkout = JSON.parse(saved);
+                    uiStartWorkout();
+                } catch(e) {
+                    localStorage.removeItem("gym_active_workout");
+                }
+            }
+        }
 
         function loadExerciseDatabase() {
             const saved = localStorage.getItem("gym_exercise_db_v2");
@@ -256,6 +296,7 @@
                             name: val,
                             sets: [{ weight: "", reps: "" }]
                         });
+                        persistCurrentWorkout();
                         renderWorkoutExercises();
                     }
                 }
@@ -318,6 +359,7 @@
                 totalRestSeconds: 0,
                 exercises: []
             };
+            persistCurrentWorkout();
             uiStartWorkout();
         }
 
@@ -333,9 +375,10 @@
         }
 
         function cancelWorkout() {
-            if (confirm("Chceš se vrátit do menu? Probíhající trénink bude zrušen.")) {
+            if (confirm("Chceš zrušit probíhající trénink? Data budou smazána.")) {
                 clearInterval(mainInterval);
                 currentWorkout = null;
+                persistCurrentWorkout();
                 document.getElementById("workout-active").style.display = "none";
                 document.getElementById("workout-setup").style.display = "block";
                 document.getElementById("timer").style.display = "none";
@@ -351,6 +394,7 @@
                 currentWorkout.totalRestSeconds = (currentWorkout.totalRestSeconds || 0) + restDuration;
             }
             currentWorkout.lastSetTimestamp = now;
+            persistCurrentWorkout();
         }
 
         function startEngine() {
@@ -393,6 +437,7 @@
                 sets: [{ weight: "", reps: "" }]
             });
             select.value = "";
+            persistCurrentWorkout();
             renderWorkoutExercises();
         }
 
@@ -450,21 +495,24 @@
                 weight: lastSet ? lastSet.weight : "", 
                 reps: lastSet ? lastSet.reps : "" 
             });
+            persistCurrentWorkout();
             renderWorkoutExercises();
         }
 
         function removeSet(exIdx, setIdx) {
             currentWorkout.exercises[exIdx].sets.splice(setIdx, 1);
+            persistCurrentWorkout();
             renderWorkoutExercises();
         }
 
         function removeExercise(exIdx) {
             currentWorkout.exercises.splice(exIdx, 1);
+            persistCurrentWorkout();
             renderWorkoutExercises();
         }
 
         async function finishWorkout() {
-            if (!confirm("Ukončit trénink a odeslat do Google Tabulek?")) return;
+            if (!confirm("Ukončit trénink a odeslat?")) return;
 
             triggerSetCompletion();
             clearInterval(mainInterval);
@@ -513,24 +561,69 @@
                 });
             }
 
+            // Vyčištění probíhajícího tréninku
+            currentWorkout = null;
+            persistCurrentWorkout();
+
+            // Pokus o odeslání nebo uložení do offline fronty
+            if (navigator.onLine) {
+                const success = await sendDataToGoogle(dataToSend);
+                if (success) {
+                    alert("Trénink byl úspěšně odeslán do Google Tabulek!");
+                } else {
+                    queueForLater(dataToSend);
+                    alert("Chyba při odesílání. Trénink byl uložen do paměti a pošle se automaticky později.");
+                }
+            } else {
+                queueForLater(dataToSend);
+                alert("Jste offline. Trénink byl uložen v telefonu a odešle se automaticky po obnovení signálu.");
+            }
+
+            document.getElementById("workout-active").style.display = "none";
+            document.getElementById("workout-setup").style.display = "block";
+            document.getElementById("timer").style.display = "none";
+            document.getElementById("panel-title").innerText = "Zahájit trénink";
+        }
+
+        async function sendDataToGoogle(rowsData) {
             try {
                 await fetch(GOOGLE_SCRIPT_URL, {
                     method: "POST",
                     mode: "no-cors",
                     headers: { "Content-Type": "text/plain;charset=utf-8" },
-                    body: JSON.stringify({ rows: dataToSend })
+                    body: JSON.stringify({ rows: rowsData })
                 });
-
-                alert("Trénink byl úspěšně odeslán do Google Tabulek!");
+                return true;
             } catch (err) {
-                alert("Chyba při odesílání do Google Tabulek: " + err);
+                return false;
+            }
+        }
+
+        function queueForLater(rowsData) {
+            const queue = JSON.parse(localStorage.getItem("gym_pending_queue") || "[]");
+            queue.push(rowsData);
+            localStorage.setItem("gym_pending_queue", JSON.stringify(queue));
+        }
+
+        async function processPendingQueue() {
+            if (!navigator.onLine) return;
+
+            const queue = JSON.parse(localStorage.getItem("gym_pending_queue") || "[]");
+            if (queue.length === 0) return;
+
+            const remainingQueue = [];
+
+            for (const item of queue) {
+                const ok = await sendDataToGoogle(item);
+                if (!ok) {
+                    remainingQueue.push(item);
+                }
             }
 
-            currentWorkout = null;
-            document.getElementById("workout-active").style.display = "none";
-            document.getElementById("workout-setup").style.display = "block";
-            document.getElementById("timer").style.display = "none";
-            document.getElementById("panel-title").innerText = "Zahájit trénink";
+            localStorage.setItem("gym_pending_queue", JSON.stringify(remainingQueue));
+            if (queue.length > 0 && remainingQueue.length === 0) {
+                console.log("Všechny neodoslané tréninky byly úspěšně odeslány!");
+            }
         }
     </script>
 </body>
