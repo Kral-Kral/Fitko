@@ -36,20 +36,27 @@
         .btn-sm { padding: 6px 10px; font-size: 0.8rem; }
         .timer-badge { font-family: monospace; font-size: 1rem; background: #0f172a; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border-color); color: var(--accent); }
 
-        .status-box { background: #0f172a; border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; margin-bottom: 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; text-align: center; }
-        .status-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; display: block; }
-        .status-value { font-family: monospace; font-size: 1.1rem; font-weight: bold; }
+        .status-box { background: #0f172a; border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; margin-bottom: 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 8px; text-align: center; }
+        .status-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; display: block; }
+        .status-value { font-family: monospace; font-size: 1rem; font-weight: bold; }
 
         select, input { width: 100%; padding: 10px; background-color: #0f172a; border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-main); font-size: 0.95rem; margin-bottom: 12px; }
         select:focus, input:focus { outline: none; border-color: var(--accent); }
 
         .exercise-block { background: #0f172a; border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; margin-bottom: 16px; }
-        .exercise-header { font-weight: 600; margin-bottom: 10px; color: var(--accent); display: flex; justify-content: space-between; }
+        .exercise-header { font-weight: 600; margin-bottom: 6px; color: var(--accent); display: flex; justify-content: space-between; align-items: center; }
+
+        .overload-badge { font-size: 0.8rem; padding: 4px 8px; border-radius: 6px; font-weight: bold; margin-bottom: 8px; display: inline-block; }
+        .overload-success { background: rgba(34, 197, 94, 0.2); color: var(--success); border: 1px solid var(--success); }
+        .overload-same { background: rgba(148, 163, 184, 0.2); color: var(--text-muted); border: 1px solid var(--text-muted); }
+        .overload-down { background: rgba(239, 68, 68, 0.2); color: var(--danger); border: 1px solid var(--danger); }
 
         .sets-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
         .sets-table th, .sets-table td { text-align: left; padding: 6px 8px; font-size: 0.85rem; }
         .sets-table th { color: var(--text-muted); border-bottom: 1px solid var(--border-color); }
         .sets-table input { margin-bottom: 0; padding: 6px; text-align: center; }
+
+        .history-text { font-size: 0.75rem; color: var(--text-muted); font-style: italic; margin-bottom: 6px; }
 
         .add-exercise-bar { display: flex; gap: 8px; margin-bottom: 8px; }
         .add-exercise-bar select { margin-bottom: 0; flex: 1; }
@@ -93,7 +100,7 @@
         <div id="workout-active" style="display: none;">
             <div class="status-box">
                 <div>
-                    <span class="status-label">Aktuální pauza</span>
+                    <span class="status-label">Pauza</span>
                     <span id="current-rest-display" class="status-value" style="color: var(--warning);">00:00</span>
                 </div>
                 <div>
@@ -103,6 +110,10 @@
                 <div>
                     <span class="status-label">Součet pauz</span>
                     <span id="total-rest-display" class="status-value" style="color: var(--text-muted);">00:00:00</span>
+                </div>
+                <div>
+                    <span class="status-label">Objem kg</span>
+                    <span id="total-volume-display" class="status-value" style="color: var(--success);">0 kg</span>
                 </div>
             </div>
 
@@ -114,7 +125,7 @@
             </div>
             
             <div style="display: flex; gap: 8px; margin-bottom: 16px;">
-                <button class="btn btn-success btn-sm" style="flex: 1;" onclick="openAddModal()">➕ Přidat nový cvik do databáze</button>
+                <button class="btn btn-success btn-sm" style="flex: 1;" onclick="openAddModal()">➕ Přidat nový cvik</button>
                 <button class="btn btn-secondary btn-sm" style="flex: 1;" onclick="openManagerModal()">⚙️ Upravit seznam</button>
             </div>
 
@@ -218,6 +229,7 @@
             } else {
                 localStorage.removeItem("gym_active_workout");
             }
+            calculateTotalVolume();
         }
 
         function restoreActiveWorkout() {
@@ -292,12 +304,7 @@
                     saveExerciseDatabase();
                     
                     if (currentWorkout) {
-                        currentWorkout.exercises.push({
-                            name: val,
-                            sets: [{ weight: "", reps: "" }]
-                        });
-                        persistCurrentWorkout();
-                        renderWorkoutExercises();
+                        addExerciseToWorkout(val);
                     }
                 }
                 closeAddModal();
@@ -415,6 +422,20 @@
             }, 1000);
         }
 
+        function calculateTotalVolume() {
+            if (!currentWorkout) return;
+            let totalVolume = 0;
+            currentWorkout.exercises.forEach(ex => {
+                ex.sets.forEach(s => {
+                    const w = Number(s.weight) || 0;
+                    const r = Number(s.reps) || 0;
+                    totalVolume += (w * r);
+                });
+            });
+            const display = document.getElementById("total-volume-display");
+            if (display) display.innerText = totalVolume.toLocaleString("cs-CZ") + " kg";
+        }
+
         function formatMMSS(sec) {
             const m = String(Math.floor(sec / 60)).padStart(2, '0');
             const s = String(sec % 60).padStart(2, '0');
@@ -428,17 +449,64 @@
             return `${hrs}:${mins}:${secs}`;
         }
 
-        function addSelectedExercise() {
+        async function fetchLastPerformance(exerciseName) {
+            if (!navigator.onLine) return null;
+            try {
+                const res = await fetch(`${GOOGLE_SCRIPT_URL}?action=getLastPerformance&exercise=${encodeURIComponent(exerciseName)}`);
+                const data = await res.json();
+                return data;
+            } catch(e) {
+                return null;
+            }
+        }
+
+        async function addSelectedExercise() {
             const select = document.getElementById("exercise-select");
             const val = select.value;
             if (!val) return;
-            currentWorkout.exercises.push({
-                name: val,
-                sets: [{ weight: "", reps: "" }]
-            });
+            await addExerciseToWorkout(val);
             select.value = "";
+        }
+
+        async function addExerciseToWorkout(exerciseName) {
+            const history = await fetchLastPerformance(exerciseName);
+            
+            const newEx = {
+                name: exerciseName,
+                history: history || [],
+                sets: [{ weight: "", reps: "" }]
+            };
+
+            currentWorkout.exercises.push(newEx);
             persistCurrentWorkout();
             renderWorkoutExercises();
+        }
+
+        function evaluateOverload(ex) {
+            let currentVol = 0;
+            let histVol = 0;
+
+            ex.sets.forEach(s => {
+                currentVol += (Number(s.weight) || 0) * (Number(s.reps) || 0);
+            });
+
+            if (ex.history && ex.history.length > 0) {
+                ex.history.forEach(h => {
+                    histVol += (Number(h.vaha) || 0) * (Number(h.opakovani) || 0);
+                });
+            }
+
+            if (currentVol === 0) return { text: "Zadejte váhu a opakování", class: "overload-same" };
+            if (histVol === 0) return { text: "První záznam cviku", class: "overload-same" };
+
+            const diff = currentVol - histVol;
+            if (diff > 0) {
+                return { text: `🔥 Progressive Overload! (+${diff} kg objem)`, class: "overload-success" };
+            } else if (diff === 0) {
+                return { text: "⚖️ Stejný výkon jako minule", class: "overload-same" };
+            } else {
+                return { text: `🔻 Nižší výkon (-${Math.abs(diff)} kg objem)`, class: "overload-down" };
+            }
         }
 
         function renderWorkoutExercises() {
@@ -461,11 +529,21 @@
                     `;
                 });
 
+                let historyText = "Minule: Žádný předchozí záznam";
+                if (ex.history && ex.history.length > 0) {
+                    const formattedHistory = ex.history.map(h => `${h.vaha}kg×${h.opakovani}`).join(", ");
+                    historyText = `Minule: ${formattedHistory}`;
+                }
+
+                const overloadStatus = evaluateOverload(ex);
+
                 exBlock.innerHTML = `
                     <div class="exercise-header">
                         <span>${ex.name}</span>
                         <button class="btn btn-sm btn-danger" onclick="removeExercise(${exIdx})">Smazat</button>
                     </div>
+                    <div class="history-text">${historyText}</div>
+                    <div class="overload-badge ${overloadStatus.class}">${overloadStatus.text}</div>
                     <table class="sets-table">
                         <thead>
                             <tr>
@@ -481,11 +559,13 @@
                 `;
                 container.appendChild(exBlock);
             });
+            calculateTotalVolume();
         }
 
         function updateSet(exIdx, setIdx, field, value) {
             currentWorkout.exercises[exIdx].sets[setIdx][field] = value;
             triggerSetCompletion();
+            renderWorkoutExercises();
         }
 
         function addSet(exIdx) {
@@ -527,6 +607,8 @@
 
             currentWorkout.exercises.forEach(ex => {
                 ex.sets.forEach((set, i) => {
+                    const w = Number(set.weight) || 0;
+                    const r = Number(set.reps) || 0;
                     if (set.weight !== "" || set.reps !== "") {
                         dataToSend.push({
                             datum: start.toLocaleDateString("cs-CZ"),
@@ -535,8 +617,9 @@
                             typTreninku: currentWorkout.type,
                             cvik: ex.name,
                             serie: i + 1,
-                            vaha: Number(set.weight) || 0,
-                            opakovani: Number(set.reps) || 0,
+                            vaha: w,
+                            opakovani: r,
+                            objemSerie: w * r,
                             celkovyCas: formatSeconds(totalSec),
                             cistyCas: formatSeconds(netSec),
                             celkovyCasPauz: formatSeconds(restSec)
@@ -555,17 +638,16 @@
                     serie: 0,
                     vaha: 0,
                     opakovani: 0,
+                    objemSerie: 0,
                     celkovyCas: formatSeconds(totalSec),
                     cistyCas: formatSeconds(netSec),
                     celkovyCasPauz: formatSeconds(restSec)
                 });
             }
 
-            // Vyčištění probíhajícího tréninku
             currentWorkout = null;
             persistCurrentWorkout();
 
-            // Pokus o odeslání nebo uložení do offline fronty
             if (navigator.onLine) {
                 const success = await sendDataToGoogle(dataToSend);
                 if (success) {
@@ -622,7 +704,7 @@
 
             localStorage.setItem("gym_pending_queue", JSON.stringify(remainingQueue));
             if (queue.length > 0 && remainingQueue.length === 0) {
-                console.log("Všechny neodoslané tréninky byly úspěšně odeslány!");
+                console.log("Všechny neodeslané tréninky byly úspěšně odeslány!");
             }
         }
     </script>
