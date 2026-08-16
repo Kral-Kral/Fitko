@@ -20,8 +20,36 @@
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
         body { background-color: var(--bg-color); color: var(--text-main); padding: 16px; max-width: 800px; margin: 0 auto; }
-        header { text-align: center; padding: 12px 0 20px 0; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; position: relative; }
-        h1 { font-size: 1.6rem; color: var(--accent); }
+        header {
+            display: grid;
+            grid-template-columns: 40px 1fr 40px;
+            align-items: center;
+            padding: 12px 0 20px 0;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 20px;
+        }
+        h1 { font-size: 1.6rem; color: var(--accent); text-align: center; }
+        .header-spacer { width: 40px; }
+        .icon-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            color: var(--accent);
+            font-size: 1.1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            justify-self: end;
+            transition: background-color 0.15s ease, color 0.15s ease;
+        }
+        .icon-btn:hover {
+            background-color: var(--accent);
+            color: var(--bg-color);
+            border-color: var(--accent);
+        }
         
         .card { background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px; margin-bottom: 20px; }
         .card-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
@@ -76,8 +104,9 @@
 <body>
 
     <header>
+        <div class="header-spacer"></div>
         <h1>TRÉNINKOVÝ DENÍK</h1>
-        <button class="btn btn-secondary btn-sm" style="position: absolute; right: 0; top: 12px;" onclick="openProfileModal()">👤 Profil & BMR</button>
+        <button class="icon-btn" onclick="openProfileModal()" title="Profil & BMR" aria-label="Profil a BMR">👤</button>
     </header>
 
     <div id="offline-status" class="offline-banner">⚠️ Jste v offline režimu. Data se ukládají v telefonu a odešlou se po připojení.</div>
@@ -358,6 +387,9 @@
             if (saved) {
                 try {
                     currentWorkout = JSON.parse(saved);
+                    if (typeof currentWorkout.isResting === "undefined") currentWorkout.isResting = false;
+                    if (typeof currentWorkout.restStartTimestamp === "undefined") currentWorkout.restStartTimestamp = null;
+                    if (typeof currentWorkout.totalRestSeconds === "undefined") currentWorkout.totalRestSeconds = 0;
                     uiStartWorkout();
                 } catch(e) {
                     localStorage.removeItem("gym_active_workout");
@@ -483,7 +515,10 @@
                 id: now,
                 type: type,
                 startTime: new Date(now).toISOString(),
-                lastSetTimestamp: now,
+                // Na startu tréninku ještě necvičíš (vybíráš/chystáš se) -
+                // proto je počáteční stav "pauza".
+                isResting: true,
+                restStartTimestamp: now,
                 totalRestSeconds: 0,
                 exercises: []
             };
@@ -514,15 +549,32 @@
             }
         }
 
-        function triggerSetCompletion() {
+        // Spustí počítání pauzy. Voláno výhradně po potvrzení POČTU
+        // OPAKOVÁNÍ (série je hotová - od teď odpočíváš), a taky při
+        // přidání nové série / nového cviku (stále odpočíváš, dokud
+        // nezadáš váhu další série).
+        function startResting() {
             if (!currentWorkout) return;
-            const now = Date.now();
-            const restDuration = Math.floor((now - currentWorkout.lastSetTimestamp) / 1000);
-            if (restDuration > 0) {
-                currentWorkout.totalRestSeconds = (currentWorkout.totalRestSeconds || 0) + restDuration;
+            if (!currentWorkout.isResting) {
+                currentWorkout.isResting = true;
+                currentWorkout.restStartTimestamp = Date.now();
+                persistCurrentWorkout();
             }
-            currentWorkout.lastSetTimestamp = now;
-            persistCurrentWorkout();
+        }
+
+        // Ukončí počítání pauzy a připočte uplynulý čas k celkové pauze.
+        // Voláno výhradně po potvrzení VÁHY (začínáš/pokračuješ v sérii -
+        // od teď cvičíš).
+        function stopResting() {
+            if (!currentWorkout) return;
+            if (currentWorkout.isResting && currentWorkout.restStartTimestamp) {
+                const now = Date.now();
+                const elapsed = Math.floor((now - currentWorkout.restStartTimestamp) / 1000);
+                currentWorkout.totalRestSeconds = (currentWorkout.totalRestSeconds || 0) + Math.max(0, elapsed);
+                currentWorkout.isResting = false;
+                currentWorkout.restStartTimestamp = null;
+                persistCurrentWorkout();
+            }
         }
 
         function calculateBurnedCalories(netTimeSeconds) {
@@ -540,9 +592,12 @@
                 const now = Date.now();
                 const start = new Date(currentWorkout.startTime).getTime();
                 const totalSec = Math.floor((now - start) / 1000);
-                const currentRestSec = Math.floor((now - currentWorkout.lastSetTimestamp) / 1000);
-                const accumulatedRestSec = (currentWorkout.totalRestSeconds || 0) + currentRestSec;
-                const netSec = Math.max(0, totalSec - accumulatedRestSec);
+
+                const currentRestSec = currentWorkout.isResting && currentWorkout.restStartTimestamp
+                    ? Math.floor((now - currentWorkout.restStartTimestamp) / 1000)
+                    : 0;
+                const totalRestDisplay = (currentWorkout.totalRestSeconds || 0) + currentRestSec;
+                const netSec = Math.max(0, totalSec - totalRestDisplay);
 
                 document.getElementById("timer").innerText = formatSeconds(totalSec);
                 document.getElementById("current-rest-display").innerText = formatMMSS(currentRestSec);
@@ -600,6 +655,9 @@
         }
 
         async function addExerciseToWorkout(exerciseName) {
+            // Nový cvik = pořád pauza, dokud nezadáš váhu první série.
+            startResting();
+
             const history = await fetchLastPerformance(exerciseName);
             
             const newEx = {
@@ -653,8 +711,8 @@
                     setsHtml += `
                         <tr>
                             <td><strong>${setIdx + 1}. série</strong></td>
-                            <td><input type="number" value="${set.weight}" placeholder="kg" onchange="updateSet(${exIdx}, ${setIdx}, 'weight', this.value)"></td>
-                            <td><input type="number" value="${set.reps}" placeholder="opak" onchange="updateSet(${exIdx}, ${setIdx}, 'reps', this.value)"></td>
+                            <td><input type="number" value="${set.weight}" placeholder="kg" onchange="updateWeight(${exIdx}, ${setIdx}, this.value)"></td>
+                            <td><input type="number" value="${set.reps}" placeholder="opak" onchange="updateReps(${exIdx}, ${setIdx}, this.value)"></td>
                             <td><button class="btn btn-sm btn-danger" onclick="removeSet(${exIdx}, ${setIdx})">✕</button></td>
                         </tr>
                     `;
@@ -693,14 +751,26 @@
             calculateTotalVolume();
         }
 
-        function updateSet(exIdx, setIdx, field, value) {
-            currentWorkout.exercises[exIdx].sets[setIdx][field] = value;
-            triggerSetCompletion();
+        // Potvrzení VÁHY = začínáš/pokračuješ sérii = cvičíš = konec pauzy.
+        function updateWeight(exIdx, setIdx, value) {
+            currentWorkout.exercises[exIdx].sets[setIdx].weight = value;
+            stopResting();
+            persistCurrentWorkout();
+            renderWorkoutExercises();
+        }
+
+        // Potvrzení OPAKOVÁNÍ = série hotová = odpočíváš = start pauzy.
+        function updateReps(exIdx, setIdx, value) {
+            currentWorkout.exercises[exIdx].sets[setIdx].reps = value;
+            startResting();
+            persistCurrentWorkout();
             renderWorkoutExercises();
         }
 
         function addSet(exIdx) {
-            triggerSetCompletion();
+            // Nová série = pořád pauza, dokud nezadáš váhu.
+            startResting();
+
             const lastSet = currentWorkout.exercises[exIdx].sets.slice(-1)[0];
             currentWorkout.exercises[exIdx].sets.push({ 
                 weight: lastSet ? lastSet.weight : "", 
@@ -725,7 +795,7 @@
         async function finishWorkout() {
             if (!confirm("Ukončit trénink a odeslat?")) return;
 
-            triggerSetCompletion();
+            stopResting();
             clearInterval(mainInterval);
             
             const now = new Date();
