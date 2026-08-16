@@ -163,7 +163,7 @@
         </div>
     </div>
 
-    <!-- MODAL: SPRÁVA A ÚPRAVA EXISTUJÍCÍCH CVIKŮ -->
+    <!-- MODAL: SPRÁVA A ÚPRAVA CVIKŮ -->
     <div id="manager-modal" class="modal-overlay">
         <div class="modal-content">
             <h3 style="margin-bottom:12px; color: var(--accent);">Správa a úprava cviků</h3>
@@ -185,7 +185,7 @@
         };
 
         const DEFAULT_EXERCISES_DATABASE = {
-            "Prsa": ["Bench Press", "Incline Dumbbell Press", "Chest Flyes", "Incline Smith Machine Press", "Dips"],
+            "Prsa": ["Bench Press", "Incline Dumbbell Press", "Chest Flyes", "Incline Smith Machine Press", "Dips", "Peck Deck"],
             "Záda": ["Lat Pulldown", "Barbell Row", "Cable Row", "Pull-Ups", "T-Bar Row"],
             "Ramena": ["Overhead Press", "Lateral Raise", "Face Pull", "Dumbbell Shoulder Press", "Reverse Flyes"],
             "Biceps": ["Barbell Biceps Curl", "Hammer Curl", "Preacher Curl", "Incline Dumbbell Curl"],
@@ -496,16 +496,16 @@
                 });
             }
 
-            if (currentVol === 0) return { text: "Zadejte váhu a opakování", class: "overload-same" };
-            if (histVol === 0) return { text: "První záznam cviku", class: "overload-same" };
+            if (currentVol === 0) return { text: "Zadejte váhu a opakování", class: "overload-same", rawText: "Bez dat" };
+            if (histVol === 0) return { text: "První záznam cviku", class: "overload-same", rawText: "První záznam" };
 
             const diff = currentVol - histVol;
             if (diff > 0) {
-                return { text: `🔥 Progressive Overload! (+${diff} kg objem)`, class: "overload-success" };
+                return { text: `🔥 Progressive Overload! (+${diff} kg objem)`, class: "overload-success", rawText: `Progres (+${diff} kg)` };
             } else if (diff === 0) {
-                return { text: "⚖️ Stejný výkon jako minule", class: "overload-same" };
+                return { text: "⚖️ Stejný výkon jako minule", class: "overload-same", rawText: "Stejný výkon" };
             } else {
-                return { text: `🔻 Nižší výkon (-${Math.abs(diff)} kg objem)`, class: "overload-down" };
+                return { text: `🔻 Nižší výkon (-${Math.abs(diff)} kg objem)`, class: "overload-down", rawText: `Zhoršení (-${Math.abs(diff)} kg)` };
             }
         }
 
@@ -606,6 +606,7 @@
             const dataToSend = [];
 
             currentWorkout.exercises.forEach(ex => {
+                const overloadStatus = evaluateOverload(ex);
                 ex.sets.forEach((set, i) => {
                     const w = Number(set.weight) || 0;
                     const r = Number(set.reps) || 0;
@@ -619,10 +620,10 @@
                             serie: i + 1,
                             vaha: w,
                             opakovani: r,
-                            objemSerie: w * r,
                             celkovyCas: formatSeconds(totalSec),
                             cistyCas: formatSeconds(netSec),
-                            celkovyCasPauz: formatSeconds(restSec)
+                            celkovyCasPauz: formatSeconds(restSec),
+                            progres: overloadStatus.rawText
                         });
                     }
                 });
@@ -638,10 +639,10 @@
                     serie: 0,
                     vaha: 0,
                     opakovani: 0,
-                    objemSerie: 0,
                     celkovyCas: formatSeconds(totalSec),
                     cistyCas: formatSeconds(netSec),
-                    celkovyCasPauz: formatSeconds(restSec)
+                    celkovyCasPauz: formatSeconds(restSec),
+                    progres: "-"
                 });
             }
 
@@ -703,9 +704,6 @@
             }
 
             localStorage.setItem("gym_pending_queue", JSON.stringify(remainingQueue));
-            if (queue.length > 0 && remainingQueue.length === 0) {
-                console.log("Všechny neodeslané tréninky byly úspěšně odeslány!");
-            }
         }
     </script>
 </body>
