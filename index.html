@@ -20,36 +20,8 @@
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
         body { background-color: var(--bg-color); color: var(--text-main); padding: 16px; max-width: 800px; margin: 0 auto; }
-        header {
-            display: grid;
-            grid-template-columns: 40px 1fr 40px;
-            align-items: center;
-            padding: 12px 0 20px 0;
-            border-bottom: 1px solid var(--border-color);
-            margin-bottom: 20px;
-        }
-        h1 { font-size: 1.6rem; color: var(--accent); text-align: center; }
-        .header-spacer { width: 40px; }
-        .icon-btn {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            background-color: var(--card-bg);
-            border: 1px solid var(--border-color);
-            color: var(--accent);
-            font-size: 1.1rem;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            justify-self: end;
-            transition: background-color 0.15s ease, color 0.15s ease;
-        }
-        .icon-btn:hover {
-            background-color: var(--accent);
-            color: var(--bg-color);
-            border-color: var(--accent);
-        }
+        header { text-align: center; padding: 12px 0 20px 0; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; position: relative; }
+        h1 { font-size: 1.6rem; color: var(--accent); }
         
         .card { background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px; margin-bottom: 20px; }
         .card-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
@@ -104,9 +76,8 @@
 <body>
 
     <header>
-        <div class="header-spacer"></div>
         <h1>TRÉNINKOVÝ DENÍK</h1>
-        <button class="icon-btn" onclick="openProfileModal()" title="Profil & BMR" aria-label="Profil a BMR">👤</button>
+        <button class="btn btn-secondary btn-sm" style="position: absolute; right: 0; top: 12px;" onclick="openProfileModal()">👤 Profil & BMR</button>
     </header>
 
     <div id="offline-status" class="offline-banner">⚠️ Jste v offline režimu. Data se ukládají v telefonu a odešlou se po připojení.</div>
@@ -127,9 +98,6 @@
                 <option value="PULL">PULL</option>
                 <option value="LEGS">LEGS</option>
             </select>
-            <p style="font-size:0.75rem; color: var(--text-muted); margin-top:-6px; margin-bottom:12px;">
-                Typ určuje jen název tréninku a odhad kalorií. Cviky si přidáváš libovolně z jakékoli partie.
-            </p>
             <button class="btn" style="width: 100%; font-size: 1.1rem; padding: 12px;" onclick="startWorkout()">🏋️‍♂️ Start Trénink</button>
         </div>
 
@@ -191,13 +159,13 @@
             </select>
 
             <label style="font-size:0.8rem; color:var(--text-muted); display:block; margin-bottom:2px;">Věk (roky):</label>
-            <input type="number" id="prof-age" value="25" min="10" max="100" oninput="calculateBMR()">
+            <input type="number" id="prof-age" value="25" oninput="calculateBMR()">
 
             <label style="font-size:0.8rem; color:var(--text-muted); display:block; margin-bottom:2px;">Výška (cm):</label>
-            <input type="number" id="prof-height" value="180" min="100" max="250" oninput="calculateBMR()">
+            <input type="number" id="prof-height" value="180" oninput="calculateBMR()">
 
             <label style="font-size:0.8rem; color:var(--text-muted); display:block; margin-bottom:2px;">Aktuální váha (kg):</label>
-            <input type="number" id="prof-weight" value="80" min="0" step="0.1" oninput="calculateBMR()">
+            <input type="number" id="prof-weight" value="80" step="0.1" oninput="calculateBMR()">
 
             <label style="font-size:0.8rem; color:var(--text-muted); display:block; margin-bottom:2px;">Úroveň denní aktivity:</label>
             <select id="prof-activity" onchange="calculateBMR()">
@@ -219,7 +187,18 @@
         <div class="modal-content">
             <h3 style="margin-bottom:12px; color: var(--accent);">Přidat nový cvik</h3>
             <label style="font-size:0.8rem; color:var(--text-muted); display:block; margin-bottom:4px;">Vyberte partii:</label>
-            <select id="quick-add-category"></select>
+            <select id="quick-add-category">
+                <option value="Prsa">Prsa</option>
+                <option value="Záda">Záda</option>
+                <option value="Ramena">Ramena</option>
+                <option value="Biceps">Biceps</option>
+                <option value="Triceps">Triceps</option>
+                <option value="Kvadry">Kvadry</option>
+                <option value="Hamstringy">Hamstringy</option>
+                <option value="Zadek">Zadek</option>
+                <option value="Lýtka">Lýtka</option>
+                <option value="Břicho">Břicho</option>
+            </select>
             <input type="text" id="quick-add-input" placeholder="Název cviku...">
             <div style="display:flex; gap:8px;">
                 <button class="btn btn-secondary" style="flex:1;" onclick="closeAddModal()">Zrušit</button>
@@ -238,17 +217,16 @@
     </div>
 
     <script>
+        // --- VYPLŇTE VAŠI URL ADRESU Z GOOGLE APPS SCRIPTU ---
         const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyVVH2RfLKLr8dFEPR4ssTzk5V7LH3jcNLF1VF2qj98g8d4ktscL0CVvoW4w_G1rj_a/exec";
 
-        const CATEGORY_ORDER = ["Prsa", "Záda", "Ramena", "Biceps", "Triceps", "Kvadry", "Hamstringy", "Zadek", "Lýtka", "Břicho"];
-
-        const WORKOUT_MET_MAP = {
-            "UPPER": 5.0,
-            "LOWER": 6.0,
-            "FULL BODY": 6.5,
-            "PUSH": 5.0,
-            "PULL": 5.5,
-            "LEGS": 6.5
+        const WORKOUT_PARTIES_MAP = {
+            "UPPER": ["Prsa", "Záda", "Ramena", "Biceps", "Triceps"],
+            "LOWER": ["Kvadry", "Hamstringy", "Zadek", "Lýtka", "Břicho"],
+            "FULL BODY": ["Prsa", "Záda", "Ramena", "Biceps", "Triceps", "Kvadry", "Hamstringy", "Zadek", "Lýtka", "Břicho"],
+            "PUSH": ["Prsa", "Ramena", "Triceps"],
+            "PULL": ["Záda", "Biceps"],
+            "LEGS": ["Kvadry", "Hamstringy", "Zadek", "Lýtka"]
         };
 
         const DEFAULT_EXERCISES_DATABASE = {
@@ -283,13 +261,6 @@
             window.addEventListener('offline', checkOnlineStatus);
         };
 
-        function getOrderedCategories() {
-            const keys = Object.keys(exerciseDatabase);
-            const known = CATEGORY_ORDER.filter(c => keys.includes(c));
-            const extra = keys.filter(c => !CATEGORY_ORDER.includes(c));
-            return [...known, ...extra];
-        }
-
         function loadUserProfile() {
             const saved = localStorage.getItem("gym_user_profile");
             if (saved) {
@@ -308,11 +279,12 @@
                 gender: document.getElementById("prof-gender").value,
                 age: Number(document.getElementById("prof-age").value) || 25,
                 height: Number(document.getElementById("prof-height").value) || 180,
-                weight: Math.max(0, Number(document.getElementById("prof-weight").value) || 80),
+                weight: Number(document.getElementById("prof-weight").value) || 80,
                 activity: Number(document.getElementById("prof-activity").value) || 1.55
             };
             localStorage.setItem("gym_user_profile", JSON.stringify(userProfile));
 
+            // Uložení váhy do Google Tabulky
             if (navigator.onLine && GOOGLE_SCRIPT_URL) {
                 try {
                     await fetch(GOOGLE_SCRIPT_URL, {
@@ -335,9 +307,10 @@
             const gender = document.getElementById("prof-gender").value;
             const age = Number(document.getElementById("prof-age").value) || 25;
             const height = Number(document.getElementById("prof-height").value) || 180;
-            const weight = Math.max(0, Number(document.getElementById("prof-weight").value) || 80);
+            const weight = Number(document.getElementById("prof-weight").value) || 80;
             const activity = Number(document.getElementById("prof-activity").value) || 1.55;
 
+            // Mifflin-St Jeor rovnice
             let bmr = (10 * weight) + (6.25 * height) - (5 * age);
             if (gender === "male") {
                 bmr += 5;
@@ -385,9 +358,6 @@
             if (saved) {
                 try {
                     currentWorkout = JSON.parse(saved);
-                    if (typeof currentWorkout.isResting === "undefined") currentWorkout.isResting = false;
-                    if (typeof currentWorkout.restStartTimestamp === "undefined") currentWorkout.restStartTimestamp = null;
-                    if (typeof currentWorkout.totalRestSeconds === "undefined") currentWorkout.totalRestSeconds = 0;
                     uiStartWorkout();
                 } catch(e) {
                     localStorage.removeItem("gym_active_workout");
@@ -415,7 +385,9 @@
             const select = document.getElementById("exercise-select");
             select.innerHTML = '<option value="">-- Vybrat cvik ze zásobníku --</option>';
 
-            getOrderedCategories().forEach(partia => {
+            const relevantParties = WORKOUT_PARTIES_MAP[currentWorkout.type] || [];
+
+            relevantParties.forEach(partia => {
                 const exercises = exerciseDatabase[partia] || [];
                 if (exercises.length > 0) {
                     const optgroup = document.createElement("optgroup");
@@ -434,16 +406,6 @@
 
         function openAddModal() {
             document.getElementById("quick-add-input").value = "";
-
-            const categorySelect = document.getElementById("quick-add-category");
-            categorySelect.innerHTML = "";
-            getOrderedCategories().forEach(partia => {
-                const opt = document.createElement("option");
-                opt.value = partia;
-                opt.textContent = partia;
-                categorySelect.appendChild(opt);
-            });
-
             document.getElementById("add-modal").style.display = "flex";
         }
 
@@ -456,7 +418,7 @@
             const input = document.getElementById("quick-add-input");
             const val = input.value.trim();
 
-            if (val && category) {
+            if (val) {
                 if (!exerciseDatabase[category]) exerciseDatabase[category] = [];
                 if (!exerciseDatabase[category].includes(val)) {
                     exerciseDatabase[category].push(val);
@@ -483,13 +445,13 @@
             const container = document.getElementById("exercise-manager-list");
             container.innerHTML = "";
 
-            getOrderedCategories().forEach(partia => {
+            Object.keys(exerciseDatabase).forEach(partia => {
                 const partiaTitle = document.createElement("h4");
                 partiaTitle.style.cssText = "color: var(--accent); margin-top: 12px; margin-bottom: 6px; border-bottom: 1px solid var(--border-color);";
                 partiaTitle.innerText = partia;
                 container.appendChild(partiaTitle);
 
-                (exerciseDatabase[partia] || []).forEach((ex, idx) => {
+                exerciseDatabase[partia].forEach((ex, idx) => {
                     const item = document.createElement("div");
                     item.className = "modal-list-item";
                     item.innerHTML = `
@@ -521,8 +483,7 @@
                 id: now,
                 type: type,
                 startTime: new Date(now).toISOString(),
-                isResting: true,
-                restStartTimestamp: now,
+                lastSetTimestamp: now,
                 totalRestSeconds: 0,
                 exercises: []
             };
@@ -553,30 +514,20 @@
             }
         }
 
-        function startResting() {
+        function triggerSetCompletion() {
             if (!currentWorkout) return;
-            if (!currentWorkout.isResting) {
-                currentWorkout.isResting = true;
-                currentWorkout.restStartTimestamp = Date.now();
-                persistCurrentWorkout();
+            const now = Date.now();
+            const restDuration = Math.floor((now - currentWorkout.lastSetTimestamp) / 1000);
+            if (restDuration > 0) {
+                currentWorkout.totalRestSeconds = (currentWorkout.totalRestSeconds || 0) + restDuration;
             }
-        }
-
-        function stopResting() {
-            if (!currentWorkout) return;
-            if (currentWorkout.isResting && currentWorkout.restStartTimestamp) {
-                const now = Date.now();
-                const elapsed = Math.floor((now - currentWorkout.restStartTimestamp) / 1000);
-                currentWorkout.totalRestSeconds = (currentWorkout.totalRestSeconds || 0) + Math.max(0, elapsed);
-                currentWorkout.isResting = false;
-                currentWorkout.restStartTimestamp = null;
-                persistCurrentWorkout();
-            }
+            currentWorkout.lastSetTimestamp = now;
+            persistCurrentWorkout();
         }
 
         function calculateBurnedCalories(netTimeSeconds) {
             const weightKg = userProfile.weight || 80;
-            const met = (currentWorkout && WORKOUT_MET_MAP[currentWorkout.type]) || 5.5;
+            const met = 5.5; // Střední až vyšší intenzita silového tréninku
             const hours = netTimeSeconds / 3600;
             const calories = met * weightKg * hours;
             return Math.round(calories);
@@ -589,12 +540,9 @@
                 const now = Date.now();
                 const start = new Date(currentWorkout.startTime).getTime();
                 const totalSec = Math.floor((now - start) / 1000);
-
-                const currentRestSec = currentWorkout.isResting && currentWorkout.restStartTimestamp
-                    ? Math.floor((now - currentWorkout.restStartTimestamp) / 1000)
-                    : 0;
-                const totalRestDisplay = (currentWorkout.totalRestSeconds || 0) + currentRestSec;
-                const netSec = Math.max(0, totalSec - totalRestDisplay);
+                const currentRestSec = Math.floor((now - currentWorkout.lastSetTimestamp) / 1000);
+                const accumulatedRestSec = (currentWorkout.totalRestSeconds || 0) + currentRestSec;
+                const netSec = Math.max(0, totalSec - accumulatedRestSec);
 
                 document.getElementById("timer").innerText = formatSeconds(totalSec);
                 document.getElementById("current-rest-display").innerText = formatMMSS(currentRestSec);
@@ -652,10 +600,6 @@
         }
 
         async function addExerciseToWorkout(exerciseName) {
-            // Přidání nového cviku = přechod mezi cviky, ne aktivní cvičení -
-            // spouští se pauza, dokud uživatel nezačne zadávat váhu/opakování.
-            startResting();
-
             const history = await fetchLastPerformance(exerciseName);
             
             const newEx = {
@@ -670,39 +614,29 @@
         }
 
         function evaluateOverload(ex) {
-            let bestCurrent = 0;
-            let hasCurrentData = false;
+            let currentVol = 0;
+            let histVol = 0;
 
             ex.sets.forEach(s => {
-                const w = Number(s.weight) || 0;
-                const r = Number(s.reps) || 0;
-                if (w > 0 && r > 0) hasCurrentData = true;
-                const vol = w * r;
-                if (vol > bestCurrent) bestCurrent = vol;
+                currentVol += (Number(s.weight) || 0) * (Number(s.reps) || 0);
             });
 
-            let bestHist = 0;
-            let hasHistData = false;
             if (ex.history && ex.history.length > 0) {
                 ex.history.forEach(h => {
-                    const w = Number(h.vaha) || 0;
-                    const r = Number(h.opakovani) || 0;
-                    if (w > 0 && r > 0) hasHistData = true;
-                    const vol = w * r;
-                    if (vol > bestHist) bestHist = vol;
+                    histVol += (Number(h.vaha) || 0) * (Number(h.opakovani) || 0);
                 });
             }
 
-            if (!hasCurrentData) return { text: "Zadejte váhu a opakování", class: "overload-same", rawText: "Bez dat" };
-            if (!hasHistData) return { text: "První záznam cviku", class: "overload-same", rawText: "První záznam" };
+            if (currentVol === 0) return { text: "Zadejte váhu a opakování", class: "overload-same", rawText: "Bez dat" };
+            if (histVol === 0) return { text: "První záznam cviku", class: "overload-same", rawText: "První záznam" };
 
-            const diff = bestCurrent - bestHist;
+            const diff = currentVol - histVol;
             if (diff > 0) {
-                return { text: `🔥 Progressive Overload! (nejlepší série +${diff} kg objem)`, class: "overload-success", rawText: `Progres (+${diff} kg)` };
+                return { text: `🔥 Progressive Overload! (+${diff} kg objem)`, class: "overload-success", rawText: `Progres (+${diff} kg)` };
             } else if (diff === 0) {
                 return { text: "⚖️ Stejný výkon jako minule", class: "overload-same", rawText: "Stejný výkon" };
             } else {
-                return { text: `🔻 Nižší výkon (nejlepší série -${Math.abs(diff)} kg objem)`, class: "overload-down", rawText: `Zhoršení (-${Math.abs(diff)} kg)` };
+                return { text: `🔻 Nižší výkon (-${Math.abs(diff)} kg objem)`, class: "overload-down", rawText: `Zhoršení (-${Math.abs(diff)} kg)` };
             }
         }
 
@@ -719,8 +653,8 @@
                     setsHtml += `
                         <tr>
                             <td><strong>${setIdx + 1}. série</strong></td>
-                            <td><input type="number" min="0" value="${set.weight}" placeholder="kg" onchange="updateSet(${exIdx}, ${setIdx}, 'weight', this.value)"></td>
-                            <td><input type="number" min="0" value="${set.reps}" placeholder="opak" onchange="updateSet(${exIdx}, ${setIdx}, 'reps', this.value)"></td>
+                            <td><input type="number" value="${set.weight}" placeholder="kg" onchange="updateSet(${exIdx}, ${setIdx}, 'weight', this.value)"></td>
+                            <td><input type="number" value="${set.reps}" placeholder="opak" onchange="updateSet(${exIdx}, ${setIdx}, 'reps', this.value)"></td>
                             <td><button class="btn btn-sm btn-danger" onclick="removeSet(${exIdx}, ${setIdx})">✕</button></td>
                         </tr>
                     `;
@@ -760,19 +694,13 @@
         }
 
         function updateSet(exIdx, setIdx, field, value) {
-            // Psaní do pole = aktivní cvičení - pauza se zastavuje.
-            stopResting();
-
             currentWorkout.exercises[exIdx].sets[setIdx][field] = value;
-            persistCurrentWorkout();
+            triggerSetCompletion();
             renderWorkoutExercises();
         }
 
         function addSet(exIdx) {
-            // Přidání nové (prázdné) série = předchozí sérii máš hotovou,
-            // začínáš odpočívat před další.
-            startResting();
-
+            triggerSetCompletion();
             const lastSet = currentWorkout.exercises[exIdx].sets.slice(-1)[0];
             currentWorkout.exercises[exIdx].sets.push({ 
                 weight: lastSet ? lastSet.weight : "", 
@@ -797,7 +725,7 @@
         async function finishWorkout() {
             if (!confirm("Ukončit trénink a odeslat?")) return;
 
-            stopResting();
+            triggerSetCompletion();
             clearInterval(mainInterval);
             
             const now = new Date();
