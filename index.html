@@ -314,11 +314,18 @@
             localStorage.setItem("gym_user_profile", JSON.stringify(userProfile));
 
             if (navigator.onLine && GOOGLE_SCRIPT_URL) {
-                await postToGoogleScript({
-                    action: "updateWeight",
-                    weight: userProfile.weight,
-                    source: "Aplikace Profil"
-                });
+                try {
+                    await fetch(GOOGLE_SCRIPT_URL, {
+                        method: "POST",
+                        mode: "no-cors",
+                        headers: { "Content-Type": "text/plain;charset=utf-8" },
+                        body: JSON.stringify({
+                            action: "updateWeight",
+                            weight: userProfile.weight,
+                            source: "Aplikace Profil"
+                        })
+                    });
+                } catch(e){}
             }
 
             closeProfileModal();
@@ -542,11 +549,6 @@
             }
         }
 
-        function isSetComplete(set) {
-            return set.weight !== "" && set.weight !== null &&
-                   set.reps !== "" && set.reps !== null;
-        }
-
         function triggerSetCompletion() {
             if (!currentWorkout) return;
             const now = Date.now();
@@ -738,13 +740,7 @@
 
         function updateSet(exIdx, setIdx, field, value) {
             currentWorkout.exercises[exIdx].sets[setIdx][field] = value;
-
-            const set = currentWorkout.exercises[exIdx].sets[setIdx];
-            if (isSetComplete(set)) {
-                triggerSetCompletion();
-            } else {
-                persistCurrentWorkout();
-            }
+            triggerSetCompletion();
             renderWorkoutExercises();
         }
 
@@ -853,36 +849,18 @@
             document.getElementById("panel-title").innerText = "Zahájit trénink";
         }
 
-        async function postToGoogleScript(payload) {
-            try {
-                const res = await fetch(GOOGLE_SCRIPT_URL, {
-                    method: "POST",
-                    headers: { "Content-Type": "text/plain;charset=utf-8" },
-                    body: JSON.stringify(payload)
-                });
-                if (!res.ok) return false;
-                try {
-                    const data = await res.json();
-                    if (data && data.status === "error") return false;
-                } catch (parseErr) {}
-                return true;
-            } catch (corsErr) {
-                try {
-                    await fetch(GOOGLE_SCRIPT_URL, {
-                        method: "POST",
-                        mode: "no-cors",
-                        headers: { "Content-Type": "text/plain;charset=utf-8" },
-                        body: JSON.stringify(payload)
-                    });
-                    return true;
-                } catch (e) {
-                    return false;
-                }
-            }
-        }
-
         async function sendDataToGoogle(rowsData) {
-            return await postToGoogleScript({ rows: rowsData });
+            try {
+                await fetch(GOOGLE_SCRIPT_URL, {
+                    method: "POST",
+                    mode: "no-cors",
+                    headers: { "Content-Type": "text/plain;charset=utf-8" },
+                    body: JSON.stringify({ rows: rowsData })
+                });
+                return true;
+            } catch (err) {
+                return false;
+            }
         }
 
         function queueForLater(rowsData) {
@@ -910,4 +888,3 @@
         }
     </script>
 </body>
-</html>
