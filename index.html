@@ -251,11 +251,13 @@
                     exerciseDatabase[category].push(val);
                     saveExerciseDatabase();
                     
-                    currentWorkout.exercises.push({
-                        name: val,
-                        sets: [{ weight: "", reps: "" }]
-                    });
-                    renderWorkoutExercises();
+                    if (currentWorkout) {
+                        currentWorkout.exercises.push({
+                            name: val,
+                            sets: [{ weight: "", reps: "" }]
+                        });
+                        renderWorkoutExercises();
+                    }
                 }
                 closeAddModal();
             }
@@ -512,14 +514,15 @@
             }
 
             try {
+                // Změněno Content-Type a mode pro správný obchvat CORS u Google Apps Scriptu
                 await fetch(GOOGLE_SCRIPT_URL, {
                     method: "POST",
                     mode: "no-cors",
-                    headers: { "Content-Type": "application/json" },
+                    headers: { "Content-Type": "text/plain;charset=utf-8" },
                     body: JSON.stringify({ rows: dataToSend })
                 });
 
-                alert("Trénink byl úspěšně zapsán do Google Tabulek!");
+                alert("Trénink byl úspěšně odeslán do Google Tabulek!");
             } catch (err) {
                 alert("Chyba při odesílání do Google Tabulek: " + err);
             }
