@@ -127,6 +127,9 @@
                 <option value="PULL">PULL</option>
                 <option value="LEGS">LEGS</option>
             </select>
+            <p style="font-size:0.75rem; color: var(--text-muted); margin-top:-6px; margin-bottom:12px;">
+                Typ určuje jen název tréninku a odhad kalorií. Cviky si přidáváš libovolně z jakékoli partie.
+            </p>
             <button class="btn" style="width: 100%; font-size: 1.1rem; padding: 12px;" onclick="startWorkout()">🏋️‍♂️ Start Trénink</button>
         </div>
 
@@ -235,19 +238,10 @@
     </div>
 
     <script>
-        // --- VYPLŇTE VAŠI URL ADRESU Z GOOGLE APPS SCRIPTU ---
         const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyVVH2RfLKLr8dFEPR4ssTzk5V7LH3jcNLF1VF2qj98g8d4ktscL0CVvoW4w_G1rj_a/exec";
 
-        const WORKOUT_PARTIES_MAP = {
-            "UPPER": ["Prsa", "Záda", "Ramena", "Biceps", "Triceps"],
-            "LOWER": ["Kvadry", "Hamstringy", "Zadek", "Lýtka", "Břicho"],
-            "FULL BODY": ["Prsa", "Záda", "Ramena", "Biceps", "Triceps", "Kvadry", "Hamstringy", "Zadek", "Lýtka", "Břicho"],
-            "PUSH": ["Prsa", "Ramena", "Triceps"],
-            "PULL": ["Záda", "Biceps"],
-            "LEGS": ["Kvadry", "Hamstringy", "Zadek", "Lýtka"]
-        };
+        const CATEGORY_ORDER = ["Prsa", "Záda", "Ramena", "Biceps", "Triceps", "Kvadry", "Hamstringy", "Zadek", "Lýtka", "Břicho"];
 
-        // Přibližný MET pro každý typ tréninku (ovlivňuje výpočet spálených kalorií)
         const WORKOUT_MET_MAP = {
             "UPPER": 5.0,
             "LOWER": 6.0,
@@ -289,6 +283,13 @@
             window.addEventListener('offline', checkOnlineStatus);
         };
 
+        function getOrderedCategories() {
+            const keys = Object.keys(exerciseDatabase);
+            const known = CATEGORY_ORDER.filter(c => keys.includes(c));
+            const extra = keys.filter(c => !CATEGORY_ORDER.includes(c));
+            return [...known, ...extra];
+        }
+
         function loadUserProfile() {
             const saved = localStorage.getItem("gym_user_profile");
             if (saved) {
@@ -312,20 +313,12 @@
             };
             localStorage.setItem("gym_user_profile", JSON.stringify(userProfile));
 
-            // Uložení váhy do Google Tabulky
             if (navigator.onLine && GOOGLE_SCRIPT_URL) {
-                try {
-                    await fetch(GOOGLE_SCRIPT_URL, {
-                        method: "POST",
-                        mode: "no-cors",
-                        headers: { "Content-Type": "text/plain;charset=utf-8" },
-                        body: JSON.stringify({
-                            action: "updateWeight",
-                            weight: userProfile.weight,
-                            source: "Aplikace Profil"
-                        })
-                    });
-                } catch(e){}
+                await postToGoogleScript({
+                    action: "updateWeight",
+                    weight: userProfile.weight,
+                    source: "Aplikace Profil"
+                });
             }
 
             closeProfileModal();
@@ -338,7 +331,6 @@
             const weight = Math.max(0, Number(document.getElementById("prof-weight").value) || 80);
             const activity = Number(document.getElementById("prof-activity").value) || 1.55;
 
-            // Mifflin-St Jeor rovnice
             let bmr = (10 * weight) + (6.25 * height) - (5 * age);
             if (gender === "male") {
                 bmr += 5;
@@ -413,9 +405,7 @@
             const select = document.getElementById("exercise-select");
             select.innerHTML = '<option value="">-- Vybrat cvik ze zásobníku --</option>';
 
-            const relevantParties = WORKOUT_PARTIES_MAP[currentWorkout.type] || [];
-
-            relevantParties.forEach(partia => {
+            getOrderedCategories().forEach(partia => {
                 const exercises = exerciseDatabase[partia] || [];
                 if (exercises.length > 0) {
                     const optgroup = document.createElement("optgroup");
@@ -435,13 +425,9 @@
         function openAddModal() {
             document.getElementById("quick-add-input").value = "";
 
-            // Nabídnout jen partie relevantní pro aktuálně probíhající trénink,
-            // aby nešlo omylem přidat cvik do partie mimo dnešní typ tréninku.
             const categorySelect = document.getElementById("quick-add-category");
             categorySelect.innerHTML = "";
-            const relevantParties = currentWorkout ? (WORKOUT_PARTIES_MAP[currentWorkout.type] || Object.keys(exerciseDatabase)) : Object.keys(exerciseDatabase);
-
-            relevantParties.forEach(partia => {
+            getOrderedCategories().forEach(partia => {
                 const opt = document.createElement("option");
                 opt.value = partia;
                 opt.textContent = partia;
@@ -487,13 +473,13 @@
             const container = document.getElementById("exercise-manager-list");
             container.innerHTML = "";
 
-            Object.keys(exerciseDatabase).forEach(partia => {
+            getOrderedCategories().forEach(partia => {
                 const partiaTitle = document.createElement("h4");
                 partiaTitle.style.cssText = "color: var(--accent); margin-top: 12px; margin-bottom: 6px; border-bottom: 1px solid var(--border-color);";
                 partiaTitle.innerText = partia;
                 container.appendChild(partiaTitle);
 
-                exerciseDatabase[partia].forEach((ex, idx) => {
+                (exerciseDatabase[partia] || []).forEach((ex, idx) => {
                     const item = document.createElement("div");
                     item.className = "modal-list-item";
                     item.innerHTML = `
@@ -556,9 +542,6 @@
             }
         }
 
-        // Sérii započítáváme jako "dokončenou" (a tím pádem resetujeme pauzu)
-        // jen pokud má vyplněnou váhu i opakování - jinak by každé jednotlivé
-        // zadání jednoho z políček bylo mylně považováno za konec odpočinku.
         function isSetComplete(set) {
             return set.weight !== "" && set.weight !== null &&
                    set.reps !== "" && set.reps !== null;
@@ -663,9 +646,6 @@
             renderWorkoutExercises();
         }
 
-        // Porovnává nejlepší (top) sérii aktuálního tréninku s nejlepší sérií
-        // z historie - součet objemu přes všechny série byl zavádějící, pokud
-        // uživatel udělal jiný počet sérií než minule.
         function evaluateOverload(ex) {
             let bestCurrent = 0;
             let hasCurrentData = false;
@@ -759,9 +739,6 @@
         function updateSet(exIdx, setIdx, field, value) {
             currentWorkout.exercises[exIdx].sets[setIdx][field] = value;
 
-            // Pauza se resetuje pouze pokud je série po této změně kompletní
-            // (vyplněná váha i opakování) - jinak by zadání jen jednoho
-            // políčka mylně ukončilo počítání odpočinku.
             const set = currentWorkout.exercises[exIdx].sets[setIdx];
             if (isSetComplete(set)) {
                 triggerSetCompletion();
@@ -876,18 +853,36 @@
             document.getElementById("panel-title").innerText = "Zahájit trénink";
         }
 
-        async function sendDataToGoogle(rowsData) {
+        async function postToGoogleScript(payload) {
             try {
-                await fetch(GOOGLE_SCRIPT_URL, {
+                const res = await fetch(GOOGLE_SCRIPT_URL, {
                     method: "POST",
-                    mode: "no-cors",
                     headers: { "Content-Type": "text/plain;charset=utf-8" },
-                    body: JSON.stringify({ rows: rowsData })
+                    body: JSON.stringify(payload)
                 });
+                if (!res.ok) return false;
+                try {
+                    const data = await res.json();
+                    if (data && data.status === "error") return false;
+                } catch (parseErr) {}
                 return true;
-            } catch (err) {
-                return false;
+            } catch (corsErr) {
+                try {
+                    await fetch(GOOGLE_SCRIPT_URL, {
+                        method: "POST",
+                        mode: "no-cors",
+                        headers: { "Content-Type": "text/plain;charset=utf-8" },
+                        body: JSON.stringify(payload)
+                    });
+                    return true;
+                } catch (e) {
+                    return false;
+                }
             }
+        }
+
+        async function sendDataToGoogle(rowsData) {
+            return await postToGoogleScript({ rows: rowsData });
         }
 
         function queueForLater(rowsData) {
