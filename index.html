@@ -20,8 +20,36 @@
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
         body { background-color: var(--bg-color); color: var(--text-main); padding: 16px; max-width: 800px; margin: 0 auto; }
-        header { text-align: center; padding: 12px 0 20px 0; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; position: relative; }
-        h1 { font-size: 1.6rem; color: var(--accent); }
+        header {
+            display: grid;
+            grid-template-columns: 40px 1fr 40px;
+            align-items: center;
+            padding: 12px 0 20px 0;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 20px;
+        }
+        h1 { font-size: 1.6rem; color: var(--accent); text-align: center; }
+        .header-spacer { width: 40px; }
+        .icon-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            color: var(--accent);
+            font-size: 1.1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            justify-self: end;
+            transition: background-color 0.15s ease, color 0.15s ease;
+        }
+        .icon-btn:hover {
+            background-color: var(--accent);
+            color: var(--bg-color);
+            border-color: var(--accent);
+        }
         
         .card { background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px; margin-bottom: 20px; }
         .card-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
@@ -76,8 +104,9 @@
 <body>
 
     <header>
+        <div class="header-spacer"></div>
         <h1>TRÉNINKOVÝ DENÍK</h1>
-        <button class="btn btn-secondary btn-sm" style="position: absolute; right: 0; top: 12px;" onclick="openProfileModal()">👤 Profil & BMR</button>
+        <button class="icon-btn" onclick="openProfileModal()" title="Profil & BMR" aria-label="Profil a BMR">👤</button>
     </header>
 
     <div id="offline-status" class="offline-banner">⚠️ Jste v offline režimu. Data se ukládají v telefonu a odešlou se po připojení.</div>
@@ -159,13 +188,13 @@
             </select>
 
             <label style="font-size:0.8rem; color:var(--text-muted); display:block; margin-bottom:2px;">Věk (roky):</label>
-            <input type="number" id="prof-age" value="25" oninput="calculateBMR()">
+            <input type="number" id="prof-age" value="25" min="10" max="100" oninput="calculateBMR()">
 
             <label style="font-size:0.8rem; color:var(--text-muted); display:block; margin-bottom:2px;">Výška (cm):</label>
-            <input type="number" id="prof-height" value="180" oninput="calculateBMR()">
+            <input type="number" id="prof-height" value="180" min="100" max="250" oninput="calculateBMR()">
 
             <label style="font-size:0.8rem; color:var(--text-muted); display:block; margin-bottom:2px;">Aktuální váha (kg):</label>
-            <input type="number" id="prof-weight" value="80" step="0.1" oninput="calculateBMR()">
+            <input type="number" id="prof-weight" value="80" min="0" step="0.1" oninput="calculateBMR()">
 
             <label style="font-size:0.8rem; color:var(--text-muted); display:block; margin-bottom:2px;">Úroveň denní aktivity:</label>
             <select id="prof-activity" onchange="calculateBMR()">
@@ -187,18 +216,7 @@
         <div class="modal-content">
             <h3 style="margin-bottom:12px; color: var(--accent);">Přidat nový cvik</h3>
             <label style="font-size:0.8rem; color:var(--text-muted); display:block; margin-bottom:4px;">Vyberte partii:</label>
-            <select id="quick-add-category">
-                <option value="Prsa">Prsa</option>
-                <option value="Záda">Záda</option>
-                <option value="Ramena">Ramena</option>
-                <option value="Biceps">Biceps</option>
-                <option value="Triceps">Triceps</option>
-                <option value="Kvadry">Kvadry</option>
-                <option value="Hamstringy">Hamstringy</option>
-                <option value="Zadek">Zadek</option>
-                <option value="Lýtka">Lýtka</option>
-                <option value="Břicho">Břicho</option>
-            </select>
+            <select id="quick-add-category"></select>
             <input type="text" id="quick-add-input" placeholder="Název cviku...">
             <div style="display:flex; gap:8px;">
                 <button class="btn btn-secondary" style="flex:1;" onclick="closeAddModal()">Zrušit</button>
@@ -227,6 +245,16 @@
             "PUSH": ["Prsa", "Ramena", "Triceps"],
             "PULL": ["Záda", "Biceps"],
             "LEGS": ["Kvadry", "Hamstringy", "Zadek", "Lýtka"]
+        };
+
+        // Přibližný MET pro každý typ tréninku (ovlivňuje výpočet spálených kalorií)
+        const WORKOUT_MET_MAP = {
+            "UPPER": 5.0,
+            "LOWER": 6.0,
+            "FULL BODY": 6.5,
+            "PUSH": 5.0,
+            "PULL": 5.5,
+            "LEGS": 6.5
         };
 
         const DEFAULT_EXERCISES_DATABASE = {
@@ -279,7 +307,7 @@
                 gender: document.getElementById("prof-gender").value,
                 age: Number(document.getElementById("prof-age").value) || 25,
                 height: Number(document.getElementById("prof-height").value) || 180,
-                weight: Number(document.getElementById("prof-weight").value) || 80,
+                weight: Math.max(0, Number(document.getElementById("prof-weight").value) || 80),
                 activity: Number(document.getElementById("prof-activity").value) || 1.55
             };
             localStorage.setItem("gym_user_profile", JSON.stringify(userProfile));
@@ -307,7 +335,7 @@
             const gender = document.getElementById("prof-gender").value;
             const age = Number(document.getElementById("prof-age").value) || 25;
             const height = Number(document.getElementById("prof-height").value) || 180;
-            const weight = Number(document.getElementById("prof-weight").value) || 80;
+            const weight = Math.max(0, Number(document.getElementById("prof-weight").value) || 80);
             const activity = Number(document.getElementById("prof-activity").value) || 1.55;
 
             // Mifflin-St Jeor rovnice
@@ -406,6 +434,20 @@
 
         function openAddModal() {
             document.getElementById("quick-add-input").value = "";
+
+            // Nabídnout jen partie relevantní pro aktuálně probíhající trénink,
+            // aby nešlo omylem přidat cvik do partie mimo dnešní typ tréninku.
+            const categorySelect = document.getElementById("quick-add-category");
+            categorySelect.innerHTML = "";
+            const relevantParties = currentWorkout ? (WORKOUT_PARTIES_MAP[currentWorkout.type] || Object.keys(exerciseDatabase)) : Object.keys(exerciseDatabase);
+
+            relevantParties.forEach(partia => {
+                const opt = document.createElement("option");
+                opt.value = partia;
+                opt.textContent = partia;
+                categorySelect.appendChild(opt);
+            });
+
             document.getElementById("add-modal").style.display = "flex";
         }
 
@@ -418,7 +460,7 @@
             const input = document.getElementById("quick-add-input");
             const val = input.value.trim();
 
-            if (val) {
+            if (val && category) {
                 if (!exerciseDatabase[category]) exerciseDatabase[category] = [];
                 if (!exerciseDatabase[category].includes(val)) {
                     exerciseDatabase[category].push(val);
@@ -514,6 +556,14 @@
             }
         }
 
+        // Sérii započítáváme jako "dokončenou" (a tím pádem resetujeme pauzu)
+        // jen pokud má vyplněnou váhu i opakování - jinak by každé jednotlivé
+        // zadání jednoho z políček bylo mylně považováno za konec odpočinku.
+        function isSetComplete(set) {
+            return set.weight !== "" && set.weight !== null &&
+                   set.reps !== "" && set.reps !== null;
+        }
+
         function triggerSetCompletion() {
             if (!currentWorkout) return;
             const now = Date.now();
@@ -527,7 +577,7 @@
 
         function calculateBurnedCalories(netTimeSeconds) {
             const weightKg = userProfile.weight || 80;
-            const met = 5.5; // Střední až vyšší intenzita silového tréninku
+            const met = (currentWorkout && WORKOUT_MET_MAP[currentWorkout.type]) || 5.5;
             const hours = netTimeSeconds / 3600;
             const calories = met * weightKg * hours;
             return Math.round(calories);
@@ -613,30 +663,43 @@
             renderWorkoutExercises();
         }
 
+        // Porovnává nejlepší (top) sérii aktuálního tréninku s nejlepší sérií
+        // z historie - součet objemu přes všechny série byl zavádějící, pokud
+        // uživatel udělal jiný počet sérií než minule.
         function evaluateOverload(ex) {
-            let currentVol = 0;
-            let histVol = 0;
+            let bestCurrent = 0;
+            let hasCurrentData = false;
 
             ex.sets.forEach(s => {
-                currentVol += (Number(s.weight) || 0) * (Number(s.reps) || 0);
+                const w = Number(s.weight) || 0;
+                const r = Number(s.reps) || 0;
+                if (w > 0 && r > 0) hasCurrentData = true;
+                const vol = w * r;
+                if (vol > bestCurrent) bestCurrent = vol;
             });
 
+            let bestHist = 0;
+            let hasHistData = false;
             if (ex.history && ex.history.length > 0) {
                 ex.history.forEach(h => {
-                    histVol += (Number(h.vaha) || 0) * (Number(h.opakovani) || 0);
+                    const w = Number(h.vaha) || 0;
+                    const r = Number(h.opakovani) || 0;
+                    if (w > 0 && r > 0) hasHistData = true;
+                    const vol = w * r;
+                    if (vol > bestHist) bestHist = vol;
                 });
             }
 
-            if (currentVol === 0) return { text: "Zadejte váhu a opakování", class: "overload-same", rawText: "Bez dat" };
-            if (histVol === 0) return { text: "První záznam cviku", class: "overload-same", rawText: "První záznam" };
+            if (!hasCurrentData) return { text: "Zadejte váhu a opakování", class: "overload-same", rawText: "Bez dat" };
+            if (!hasHistData) return { text: "První záznam cviku", class: "overload-same", rawText: "První záznam" };
 
-            const diff = currentVol - histVol;
+            const diff = bestCurrent - bestHist;
             if (diff > 0) {
-                return { text: `🔥 Progressive Overload! (+${diff} kg objem)`, class: "overload-success", rawText: `Progres (+${diff} kg)` };
+                return { text: `🔥 Progressive Overload! (nejlepší série +${diff} kg objem)`, class: "overload-success", rawText: `Progres (+${diff} kg)` };
             } else if (diff === 0) {
                 return { text: "⚖️ Stejný výkon jako minule", class: "overload-same", rawText: "Stejný výkon" };
             } else {
-                return { text: `🔻 Nižší výkon (-${Math.abs(diff)} kg objem)`, class: "overload-down", rawText: `Zhoršení (-${Math.abs(diff)} kg)` };
+                return { text: `🔻 Nižší výkon (nejlepší série -${Math.abs(diff)} kg objem)`, class: "overload-down", rawText: `Zhoršení (-${Math.abs(diff)} kg)` };
             }
         }
 
@@ -653,8 +716,8 @@
                     setsHtml += `
                         <tr>
                             <td><strong>${setIdx + 1}. série</strong></td>
-                            <td><input type="number" value="${set.weight}" placeholder="kg" onchange="updateSet(${exIdx}, ${setIdx}, 'weight', this.value)"></td>
-                            <td><input type="number" value="${set.reps}" placeholder="opak" onchange="updateSet(${exIdx}, ${setIdx}, 'reps', this.value)"></td>
+                            <td><input type="number" min="0" value="${set.weight}" placeholder="kg" onchange="updateSet(${exIdx}, ${setIdx}, 'weight', this.value)"></td>
+                            <td><input type="number" min="0" value="${set.reps}" placeholder="opak" onchange="updateSet(${exIdx}, ${setIdx}, 'reps', this.value)"></td>
                             <td><button class="btn btn-sm btn-danger" onclick="removeSet(${exIdx}, ${setIdx})">✕</button></td>
                         </tr>
                     `;
@@ -695,7 +758,16 @@
 
         function updateSet(exIdx, setIdx, field, value) {
             currentWorkout.exercises[exIdx].sets[setIdx][field] = value;
-            triggerSetCompletion();
+
+            // Pauza se resetuje pouze pokud je série po této změně kompletní
+            // (vyplněná váha i opakování) - jinak by zadání jen jednoho
+            // políčka mylně ukončilo počítání odpočinku.
+            const set = currentWorkout.exercises[exIdx].sets[setIdx];
+            if (isSetComplete(set)) {
+                triggerSetCompletion();
+            } else {
+                persistCurrentWorkout();
+            }
             renderWorkoutExercises();
         }
 
