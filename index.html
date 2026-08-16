@@ -159,8 +159,8 @@
     </div>
 
     <script>
-        // PROPOJENÍ S GOOGLE APPS SCRIPT
-        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyUtDIViOtXMExmqOumdP0RkH7AOZ0UhfTW77N2g7xcVRQKbhiekgbVAyWZQ-Ex2eTwkA/exec";
+        // PROPOJENÍ S GOOGLE APPS SCRIPT (vložené vaše nové ID)
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyVVH2RfLKLr8dFEPR4ssTzk5V7LH3jcNLF1VF2qj98g8d4ktscL0CVvoW4w_G1rj_a/exec";
 
         const WORKOUT_PARTIES_MAP = {
             "UPPER": ["Prsa", "Záda", "Ramena", "Biceps", "Triceps"],
@@ -514,7 +514,6 @@
             }
 
             try {
-                // Změněno Content-Type a mode pro správný obchvat CORS u Google Apps Scriptu
                 await fetch(GOOGLE_SCRIPT_URL, {
                     method: "POST",
                     mode: "no-cors",
