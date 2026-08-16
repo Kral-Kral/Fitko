@@ -1,9 +1,11 @@
 <!DOCTYPE html>
-<html lang="cs">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fitko Log App - Smart Pause</title>
+    <title>Gym Workout Log</title>
+    <!-- Knihovna pro přímý export do Excelu (.xlsx) -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         :root {
             --bg-color: #0f172a;
@@ -15,320 +17,123 @@
             --border-color: #334155;
             --danger: #ef4444;
             --warning: #f59e0b;
-            --success: #22c55e;
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-main); padding: 16px; max-width: 800px; margin: 0 auto; }
+        header { text-align: center; padding: 12px 0 20px 0; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; }
+        h1 { font-size: 1.6rem; color: var(--accent); }
+        
+        .card { background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px; margin-bottom: 20px; }
+        .card-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+        
+        .btn { background-color: var(--accent); color: #0f172a; font-weight: 600; border: none; padding: 10px 16px; border-radius: 8px; cursor: pointer; font-size: 0.95rem; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+        .btn:hover { background-color: var(--accent-hover); color: #fff; }
+        .btn-secondary { background-color: #334155; color: #fff; }
+        .btn-danger { background-color: #451a1a; color: var(--danger); border: 1px solid var(--danger); }
+        .btn-danger:hover { background-color: var(--danger); color: white; }
+        .btn-sm { padding: 6px 10px; font-size: 0.8rem; }
+        .timer-badge { font-family: monospace; font-size: 1rem; background: #0f172a; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border-color); color: var(--accent); }
 
-        body {
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            padding: 16px;
-            max-width: 800px;
-            margin: 0 auto;
-        }
+        .status-box { background: #0f172a; border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; margin-bottom: 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; text-align: center; }
+        .status-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; display: block; }
+        .status-value { font-family: monospace; font-size: 1.1rem; font-weight: bold; }
 
-        header {
-            text-align: center;
-            padding: 12px 0 20px 0;
-            border-bottom: 1px solid var(--border-color);
-            margin-bottom: 20px;
-        }
+        select, input { width: 100%; padding: 10px; background-color: #0f172a; border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-main); font-size: 0.95rem; margin-bottom: 12px; }
+        select:focus, input:focus { outline: none; border-color: var(--accent); }
 
-        h1 {
-            font-size: 1.6rem;
-            color: var(--accent);
-            margin-bottom: 4px;
-        }
+        .exercise-block { background: #0f172a; border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; margin-bottom: 16px; }
+        .exercise-header { font-weight: 600; margin-bottom: 10px; color: var(--accent); display: flex; justify-content: space-between; }
 
-        .subtitle {
-            font-size: 0.85rem;
-            color: var(--text-muted);
-        }
+        .sets-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+        .sets-table th, .sets-table td { text-align: left; padding: 6px 8px; font-size: 0.85rem; }
+        .sets-table th { color: var(--text-muted); border-bottom: 1px solid var(--border-color); }
+        .sets-table input { margin-bottom: 0; padding: 6px; text-align: center; }
 
-        .card {
-            background-color: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 16px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3);
-        }
+        .add-exercise-bar { display: flex; gap: 8px; margin-bottom: 16px; }
+        .add-exercise-bar select { margin-bottom: 0; flex: 1; }
 
-        .card-title {
-            font-size: 1.1rem;
-            font-weight: 600;
-            margin-bottom: 12px;
-            color: var(--text-main);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .btn {
-            background-color: var(--accent);
-            color: #0f172a;
-            font-weight: 600;
-            border: none;
-            padding: 10px 16px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 0.95rem;
-            transition: all 0.2s;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-        }
-
-        .btn:hover {
-            background-color: var(--accent-hover);
-            color: #ffffff;
-        }
-
-        .btn-danger {
-            background-color: #451a1a;
-            color: var(--danger);
-            border: 1px solid var(--danger);
-        }
-
-        .btn-danger:hover {
-            background-color: var(--danger);
-            color: white;
-        }
-
-        .btn-sm {
-            padding: 6px 10px;
-            font-size: 0.8rem;
-        }
-
-        .timer-badge {
-            font-family: monospace;
-            font-size: 1rem;
-            background: #0f172a;
-            padding: 4px 10px;
-            border-radius: 6px;
-            border: 1px solid var(--border-color);
-            color: var(--accent);
-        }
-
-        .status-box {
-            background: #0f172a;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 16px;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-            gap: 12px;
-            text-align: center;
-        }
-
-        .status-item {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-
-        .status-label {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-        }
-
-        .status-value {
-            font-family: monospace;
-            font-size: 1.1rem;
-            font-weight: bold;
-        }
-
-        select, input {
-            width: 100%;
-            padding: 10px;
-            background-color: #0f172a;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            color: var(--text-main);
-            font-size: 0.95rem;
-            margin-bottom: 12px;
-        }
-
-        select:focus, input:focus {
-            outline: none;
-            border-color: var(--accent);
-        }
-
-        .exercise-block {
-            background: #0f172a;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 16px;
-        }
-
-        .exercise-header {
-            font-weight: 600;
-            margin-bottom: 10px;
-            color: var(--accent);
-            display: flex;
-            justify-content: space-between;
-        }
-
-        .sets-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 8px;
-        }
-
-        .sets-table th, .sets-table td {
-            text-align: left;
-            padding: 6px 8px;
-            font-size: 0.85rem;
-        }
-
-        .sets-table th {
-            color: var(--text-muted);
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .sets-table input {
-            margin-bottom: 0;
-            padding: 6px;
-            text-align: center;
-        }
-
-        .history-table-wrapper {
-            overflow-x: auto;
-        }
-
-        table.history-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.85rem;
-            min-width: 650px;
-        }
-
-        table.history-table th, table.history-table td {
-            border: 1px solid var(--border-color);
-            padding: 8px 10px;
-            text-align: left;
-            vertical-align: top;
-        }
-
-        table.history-table th {
-            background-color: #0f172a;
-            color: var(--accent);
-        }
-
-        .set-chip {
-            background: #1e293b;
-            border: 1px solid var(--border-color);
-            padding: 2px 6px;
-            border-radius: 4px;
-            margin: 2px 0;
-            display: inline-block;
-            font-family: monospace;
-        }
-
-        .actions-bar {
-            display: flex;
-            gap: 10px;
-            margin-top: 10px;
-            flex-wrap: wrap;
-        }
+        .actions-bar { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
     </style>
 </head>
 <body>
 
     <header>
-        <h1>GYM WORKOUT LOG</h1>
-        <div class="subtitle">Detekce pauz podle zapsaných sérií</div>
+        <h1>WORKOUT TRACKER</h1>
     </header>
 
-    <div class="card" id="workout-card">
+    <!-- WORKOUT PANEL -->
+    <div class="card">
         <div class="card-title">
-            <span>Aktivní Trénink</span>
-            <span id="timer" class="timer-badge">00:00:00</span>
+            <span id="panel-title">Start Workout</span>
+            <span id="timer" class="timer-badge" style="display:none;">00:00:00</span>
         </div>
 
+        <!-- MENU (SELECTION) -->
         <div id="workout-setup">
-            <label for="workout-type" style="display:block; margin-bottom: 6px; font-size:0.85rem; color: var(--text-muted);">Zvolte typ tréninku:</label>
+            <label style="display:block; margin-bottom: 6px; font-size:0.85rem; color: var(--text-muted);">Select Workout Type:</label>
             <select id="workout-type">
-                <option value="Upper">UPPER (Horní tělo)</option>
-                <option value="Lower">LOWER (Spodní tělo)</option>
-                <option value="Full Body">FULL BODY (Celé tělo)</option>
+                <option value="UPPER">UPPER</option>
+                <option value="LOWER">LOWER</option>
+                <option value="FULL BODY">FULL BODY</option>
+                <option value="PUSH">PUSH</option>
+                <option value="PULL">PULL</option>
+                <option value="LEGS">LEGS</option>
             </select>
-            <button class="btn" style="width: 100%;" onclick="startWorkout()">🚀 Zahájit trénink</button>
+            <button class="btn" style="width: 100%;" onclick="startWorkout()">🚀 Start Workout</button>
         </div>
 
+        <!-- ACTIVE WORKOUT -->
         <div id="workout-active" style="display: none;">
             
             <div class="status-box">
-                <div class="status-item">
-                    <span class="status-label">Aktuální Pauza</span>
+                <div>
+                    <span class="status-label">Current Rest</span>
                     <span id="current-rest-display" class="status-value" style="color: var(--warning);">00:00</span>
                 </div>
-                <div class="status-item">
-                    <span class="status-label">Čistý čas cvičení</span>
+                <div>
+                    <span class="status-label">Net Time</span>
                     <span id="net-time-display" class="status-value" style="color: var(--accent);">00:00:00</span>
                 </div>
-                <div class="status-item">
-                    <span class="status-label">Součet pauz</span>
+                <div>
+                    <span class="status-label">Total Rest</span>
                     <span id="total-rest-display" class="status-value" style="color: var(--text-muted);">00:00:00</span>
                 </div>
             </div>
 
+            <!-- ADD EXERCISE DROPDOWN -->
+            <div class="add-exercise-bar">
+                <select id="exercise-select">
+                    <option value="">-- Choose Exercise --</option>
+                    <option value="Bench Press">Bench Press</option>
+                    <option value="Incline Dumbbell Press">Incline Dumbbell Press</option>
+                    <option value="Lat Pulldown">Lat Pulldown</option>
+                    <option value="Barbell Row">Barbell Row</option>
+                    <option value="Overhead Press">Overhead Press</option>
+                    <option value="Lateral Raise">Lateral Raise</option>
+                    <option value="Barbell Squat">Barbell Squat</option>
+                    <option value="Leg Press">Leg Press</option>
+                    <option value="Romanian Deadlift">Romanian Deadlift</option>
+                    <option value="Leg Curl">Leg Curl</option>
+                    <option value="Biceps Curl">Biceps Curl</option>
+                    <option value="Triceps Extension">Triceps Extension</option>
+                </select>
+                <button class="btn" onclick="addSelectedExercise()">+ Add</button>
+            </div>
+            <button class="btn btn-secondary btn-sm" style="width:100%; margin-bottom:16px;" onclick="addCustomExercisePrompt()">+ Custom Exercise Name</button>
+
             <div id="exercises-container"></div>
 
             <div class="actions-bar">
-                <button class="btn" style="flex: 1;" onclick="addExercisePrompt()">+ Přidat cvik</button>
-                <button class="btn btn-danger" onclick="finishWorkout()">🏁 Ukončit trénink</button>
+                <button class="btn btn-secondary" onclick="cancelWorkout()">← Back / Cancel</button>
+                <button class="btn btn-danger" style="flex: 1;" onclick="finishWorkout()">🏁 Finish & Save Excel</button>
             </div>
         </div>
     </div>
 
-    <div class="card">
-        <div class="card-title">
-            <span>Přehled Uložených Tréninků</span>
-            <button class="btn btn-sm" onclick="exportData()">💾 Export JSON</button>
-        </div>
-
-        <div class="history-table-wrapper">
-            <table class="history-table">
-                <thead>
-                    <tr>
-                        <th>Začátek & Konec</th>
-                        <th>Rozpad času</th>
-                        <th>Trénink</th>
-                        <th>Cviky, Série a Váhy</th>
-                        <th>Akce</th>
-                    </tr>
-                </thead>
-                <tbody id="history-tbody">
-                </tbody>
-            </table>
-        </div>
-    </div>
-
     <script>
-        const EXERCISE_DATABASE = {
-            "Upper": ["Tlaky s jednoručkami na šikmé lavici", "Přítahy v předklonu na multipressu", "Peck Deck", "Stahování kladky na široko", "Tlaky na ramena na stroji"],
-            "Lower": ["Dřep s opaskem (Belt Squat)", "Hip Thrust", "Předkopávání", "Zakopávání v leže nebo v sedě"],
-            "Full Body": ["Dřep s opaskem", "Tlaky s jednoručkami na šikmé lavici", "High Row na stroji", "Tlaky na ramena na stroji"]
-        };
-
         let currentWorkout = null;
         let mainInterval = null;
-
-        window.onload = function() {
-            renderHistory();
-            checkActiveWorkout();
-        };
 
         function startWorkout() {
             const type = document.getElementById("workout-type").value;
@@ -338,44 +143,43 @@
                 id: now,
                 type: type,
                 startTime: new Date(now).toISOString(),
-                lastSetTimestamp: now, // Pauza začíná běžet od startu tréninku
+                lastSetTimestamp: now,
                 totalRestSeconds: 0,
                 exercises: []
             };
 
-            const defaultExercises = EXERCISE_DATABASE[type] || [];
-            defaultExercises.forEach(exName => {
-                currentWorkout.exercises.push({
-                    name: exName,
-                    sets: [{ weight: "", reps: "" }]
-                });
-            });
-
-            saveActiveWorkoutState();
             uiStartWorkout();
         }
 
         function uiStartWorkout() {
             document.getElementById("workout-setup").style.display = "none";
             document.getElementById("workout-active").style.display = "block";
+            document.getElementById("timer").style.display = "inline-block";
+            document.getElementById("panel-title").innerText = "Active: " + currentWorkout.type;
 
             renderWorkoutExercises();
             startEngine();
         }
 
+        function cancelWorkout() {
+            if (confirm("Go back to menu? Current active session data will be reset.")) {
+                clearInterval(mainInterval);
+                currentWorkout = null;
+                document.getElementById("workout-active").style.display = "none";
+                document.getElementById("workout-setup").style.display = "block";
+                document.getElementById("timer").style.display = "none";
+                document.getElementById("panel-title").innerText = "Start Workout";
+            }
+        }
+
         function triggerSetCompletion() {
             if (!currentWorkout) return;
             const now = Date.now();
-            
-            // Doba od poslední zapsané série se připočte do celkových pauz
             const restDuration = Math.floor((now - currentWorkout.lastSetTimestamp) / 1000);
             if (restDuration > 0) {
                 currentWorkout.totalRestSeconds = (currentWorkout.totalRestSeconds || 0) + restDuration;
             }
-            
-            // Reset časovače pro novou pauzu
             currentWorkout.lastSetTimestamp = now;
-            saveActiveWorkoutState();
         }
 
         function startEngine() {
@@ -386,14 +190,8 @@
                 const now = Date.now();
                 const start = new Date(currentWorkout.startTime).getTime();
                 const totalSec = Math.floor((now - start) / 1000);
-                
-                // Aktuální běžící pauza od poslední série
                 const currentRestSec = Math.floor((now - currentWorkout.lastSetTimestamp) / 1000);
-                
-                // Celková suma pauz (uložené + probíhající)
                 const accumulatedRestSec = (currentWorkout.totalRestSeconds || 0) + currentRestSec;
-                
-                // Čistý čas cvičení
                 const netSec = Math.max(0, totalSec - accumulatedRestSec);
 
                 document.getElementById("timer").innerText = formatSeconds(totalSec);
@@ -417,11 +215,28 @@
             return `${hrs}:${mins}:${secs}`;
         }
 
-        function formatDurationText(totalSec) {
-            const mins = Math.floor(totalSec / 60);
-            const hrs = Math.floor(mins / 60);
-            const remMins = mins % 60;
-            return hrs > 0 ? `${hrs}h ${remMins}m` : `${remMins} min`;
+        function addSelectedExercise() {
+            const select = document.getElementById("exercise-select");
+            const val = select.value;
+            if (!val) return;
+
+            currentWorkout.exercises.push({
+                name: val,
+                sets: [{ weight: "", reps: "" }]
+            });
+            select.value = "";
+            renderWorkoutExercises();
+        }
+
+        function addCustomExercisePrompt() {
+            const name = prompt("Enter Exercise Name:");
+            if (name && name.trim() !== "") {
+                currentWorkout.exercises.push({
+                    name: name.trim(),
+                    sets: [{ weight: "", reps: "" }]
+                });
+                renderWorkoutExercises();
+            }
         }
 
         function renderWorkoutExercises() {
@@ -436,9 +251,9 @@
                 ex.sets.forEach((set, setIdx) => {
                     setsHtml += `
                         <tr>
-                            <td><strong>${setIdx + 1}. série</strong></td>
+                            <td><strong>Set ${setIdx + 1}</strong></td>
                             <td><input type="number" value="${set.weight}" placeholder="kg" onchange="updateSet(${exIdx}, ${setIdx}, 'weight', this.value)"></td>
-                            <td><input type="number" value="${set.reps}" placeholder="opak" onchange="updateSet(${exIdx}, ${setIdx}, 'reps', this.value)"></td>
+                            <td><input type="number" value="${set.reps}" placeholder="reps" onchange="updateSet(${exIdx}, ${setIdx}, 'reps', this.value)"></td>
                             <td><button class="btn btn-sm btn-danger" onclick="removeSet(${exIdx}, ${setIdx})">✕</button></td>
                         </tr>
                     `;
@@ -447,22 +262,20 @@
                 exBlock.innerHTML = `
                     <div class="exercise-header">
                         <span>${ex.name}</span>
-                        <button class="btn btn-sm btn-danger" onclick="removeExercise(${exIdx})">Smazat</button>
+                        <button class="btn btn-sm btn-danger" onclick="removeExercise(${exIdx})">Remove</button>
                     </div>
                     <table class="sets-table">
                         <thead>
                             <tr>
-                                <th style="width:25%;">Série</th>
-                                <th style="width:35%;">Váha (kg)</th>
-                                <th style="width:30%;">Opakování</th>
+                                <th style="width:25%;">Set</th>
+                                <th style="width:35%;">Weight (kg)</th>
+                                <th style="width:30%;">Reps</th>
                                 <th style="width:10%;"></th>
                             </tr>
                         </thead>
-                        <tbody>
-                            ${setsHtml}
-                        </tbody>
+                        <tbody>${setsHtml}</tbody>
                     </table>
-                    <button class="btn btn-sm" style="margin-top: 8px;" onclick="addSet(${exIdx})">+ Přidat sérii</button>
+                    <button class="btn btn-sm" style="margin-top: 8px;" onclick="addSet(${exIdx})">+ Add Set</button>
                 `;
                 container.appendChild(exBlock);
             });
@@ -476,152 +289,87 @@
         function addSet(exIdx) {
             triggerSetCompletion();
             const lastSet = currentWorkout.exercises[exIdx].sets.slice(-1)[0];
-            const newWeight = lastSet ? lastSet.weight : "";
-            const newReps = lastSet ? lastSet.reps : "";
-            
-            currentWorkout.exercises[exIdx].sets.push({ weight: newWeight, reps: newReps });
+            currentWorkout.exercises[exIdx].sets.push({ 
+                weight: lastSet ? lastSet.weight : "", 
+                reps: lastSet ? lastSet.reps : "" 
+            });
             renderWorkoutExercises();
         }
 
         function removeSet(exIdx, setIdx) {
             currentWorkout.exercises[exIdx].sets.splice(setIdx, 1);
-            saveActiveWorkoutState();
             renderWorkoutExercises();
         }
 
         function removeExercise(exIdx) {
             currentWorkout.exercises.splice(exIdx, 1);
-            saveActiveWorkoutState();
             renderWorkoutExercises();
         }
 
-        function addExercisePrompt() {
-            const name = prompt("Zadejte název nového cviku:");
-            if (name && name.trim() !== "") {
-                currentWorkout.exercises.push({
-                    name: name.trim(),
-                    sets: [{ weight: "", reps: "" }]
-                });
-                saveActiveWorkoutState();
-                renderWorkoutExercises();
-            }
-        }
-
         function finishWorkout() {
-            if (!confirm("Opravdu chcete ukončit a uložit trénink?")) return;
+            if (!confirm("Finish and export to Excel?")) return;
 
-            triggerSetCompletion(); // Uloží poslední pauzu
+            triggerSetCompletion();
             clearInterval(mainInterval);
             
             const now = new Date();
-            currentWorkout.endTime = now.toISOString();
-
             const start = new Date(currentWorkout.startTime);
             const totalSec = Math.floor((now - start) / 1000);
             const restSec = currentWorkout.totalRestSeconds || 0;
             const netSec = Math.max(0, totalSec - restSec);
 
-            currentWorkout.totalDurationText = formatDurationText(totalSec);
-            currentWorkout.netDurationText = formatDurationText(netSec);
-            currentWorkout.restDurationText = formatDurationText(restSec);
-
-            const history = JSON.parse(localStorage.getItem("gym_history") || "[]");
-            history.unshift(currentWorkout);
-            localStorage.setItem("gym_history", JSON.stringify(history));
+            // Generování dat do Excelu (.xlsx)
+            exportToExcel(start, now, totalSec, netSec, restSec);
 
             currentWorkout = null;
-            localStorage.removeItem("gym_active_workout");
-
             document.getElementById("workout-active").style.display = "none";
             document.getElementById("workout-setup").style.display = "block";
-            document.getElementById("timer").innerText = "00:00:00";
+            document.getElementById("timer").style.display = "none";
+            document.getElementById("panel-title").innerText = "Start Workout";
 
-            renderHistory();
-            alert("Trénink byl uložen!");
+            alert("Workout finished and Excel spreadsheet generated!");
         }
 
-        function saveActiveWorkoutState() {
-            if (currentWorkout) {
-                localStorage.setItem("gym_active_workout", JSON.stringify(currentWorkout));
-            }
-        }
+        function exportToExcel(start, end, totalSec, netSec, restSec) {
+            const excelRows = [];
 
-        function checkActiveWorkout() {
-            const saved = localStorage.getItem("gym_active_workout");
-            if (saved) {
-                try {
-                    currentWorkout = JSON.parse(saved);
-                    uiStartWorkout();
-                } catch(e) {
-                    localStorage.removeItem("gym_active_workout");
-                }
-            }
-        }
-
-        function renderHistory() {
-            const history = JSON.parse(localStorage.getItem("gym_history") || "[]");
-            const tbody = document.getElementById("history-tbody");
-            tbody.innerHTML = "";
-
-            if (history.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color: var(--text-muted);">Zatím nemáte žádné uložené tréninky.</td></tr>`;
-                return;
-            }
-
-            history.forEach((w, idx) => {
-                const startDate = new Date(w.startTime);
-                const endDate = w.endTime ? new Date(w.endTime) : null;
-
-                const startStr = startDate.toLocaleDateString("cs-CZ") + " " + startDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                const endStr = endDate ? endDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "-";
-
-                let exercisesSummaryHtml = "";
-                let totalSetsCount = 0;
-
-                w.exercises.forEach(ex => {
-                    const validSets = ex.sets.filter(s => s.weight !== "" || s.reps !== "");
-                    if (validSets.length > 0) {
-                        totalSetsCount += validSets.length;
-                        const setsFormatted = validSets.map((s, i) => `<span class="set-chip">${i+1}. s: ${s.weight || 0}kg × ${s.reps || 0}</span>`).join(" ");
-                        exercisesSummaryHtml += `<div style="margin-bottom: 6px;"><strong>${ex.name}:</strong><br>${setsFormatted}</div>`;
+            currentWorkout.exercises.forEach(ex => {
+                ex.sets.forEach((set, i) => {
+                    if (set.weight !== "" || set.reps !== "") {
+                        excelRows.push({
+                            "Date": start.toLocaleDateString(),
+                            "Start Time": start.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                            "End Time": end.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                            "Workout Type": currentWorkout.type,
+                            "Exercise": ex.name,
+                            "Set": i + 1,
+                            "Weight (kg)": Number(set.weight) || 0,
+                            "Reps": Number(set.reps) || 0,
+                            "Total Time": formatSeconds(totalSec),
+                            "Net Workout Time": formatSeconds(netSec),
+                            "Total Rest Time": formatSeconds(restSec)
+                        });
                     }
                 });
-
-                const tr = document.createElement("tr");
-                tr.innerHTML = `
-                    <td><strong>Začátek:</strong> ${startStr}<br><small style="color:var(--text-muted);">Konec: ${endStr}</small></td>
-                    <td>
-                        ⏱️ Celkem: <strong>${w.totalDurationText || '-'}</strong><br>
-                        🏋️ Čistý čas: <strong style="color:var(--accent);">${w.netDurationText || '-'}</strong><br>
-                        ☕ Pauzy: <small style="color:var(--warning);">${w.restDurationText || '0 min'}</small>
-                    </td>
-                    <td><strong>${w.type}</strong><br><small style="color:var(--text-muted);">${totalSetsCount} sérií</small></td>
-                    <td>${exercisesSummaryHtml || '<em>Žádné zapsané série</em>'}</td>
-                    <td>
-                        <button class="btn btn-sm btn-danger" onclick="deleteHistoryItem(${idx})">Smazat</button>
-                    </td>
-                `;
-                tbody.appendChild(tr);
             });
-        }
 
-        function deleteHistoryItem(idx) {
-            if (confirm("Opravdu chcete smazat tento záznam?")) {
-                const history = JSON.parse(localStorage.getItem("gym_history") || "[]");
-                history.splice(idx, 1);
-                localStorage.setItem("gym_history", JSON.stringify(history));
-                renderHistory();
+            if (excelRows.length === 0) {
+                excelRows.push({
+                    "Date": start.toLocaleDateString(),
+                    "Workout Type": currentWorkout.type,
+                    "Total Time": formatSeconds(totalSec),
+                    "Net Workout Time": formatSeconds(netSec),
+                    "Total Rest Time": formatSeconds(restSec),
+                    "Note": "No sets logged"
+                });
             }
-        }
 
-        function exportData() {
-            const history = localStorage.getItem("gym_history") || "[]";
-            const blob = new Blob([history], { type: "application/json" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = `gym_export_${new Date().toISOString().slice(0,10)}.json`;
-            a.click();
+            const worksheet = XLSX.utils.json_to_sheet(excelRows);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Workout Log");
+
+            const fileName = `Workout_${currentWorkout.type}_${start.toISOString().slice(0,10)}.xlsx`;
+            XLSX.writeFile(workbook, fileName);
         }
     </script>
 </body>
