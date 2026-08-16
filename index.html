@@ -521,8 +521,6 @@
                 id: now,
                 type: type,
                 startTime: new Date(now).toISOString(),
-                // Trénink začíná v klidové/přípravné fázi - pauza běží,
-                // dokud uživatel poprvé nezačne skutečně cvičit (zadávat data).
                 isResting: true,
                 restStartTimestamp: now,
                 totalRestSeconds: 0,
@@ -555,9 +553,6 @@
             }
         }
 
-        // Spustí počítání pauzy - voláno jen po explicitní akci "sérii jsem
-        // dokončil" (klik na "+ Přidat sérii" / "+ Přidat cvik"), nikdy jen
-        // kvůli obsahu polí (ten může být zavádějící kvůli předvyplnění).
         function startResting() {
             if (!currentWorkout) return;
             if (!currentWorkout.isResting) {
@@ -567,8 +562,6 @@
             }
         }
 
-        // Ukončí počítání pauzy - voláno při jakékoli skutečné aktivitě
-        // (psaní do pole váha/opakování).
         function stopResting() {
             if (!currentWorkout) return;
             if (currentWorkout.isResting && currentWorkout.restStartTimestamp) {
@@ -659,9 +652,9 @@
         }
 
         async function addExerciseToWorkout(exerciseName) {
-            // Výběr nového cviku = aktivní chvíle (rozhoduješ se, díváš se
-            // na historii) - pauza se zastavuje.
-            stopResting();
+            // Přidání nového cviku = přechod mezi cviky, ne aktivní cvičení -
+            // spouští se pauza, dokud uživatel nezačne zadávat váhu/opakování.
+            startResting();
 
             const history = await fetchLastPerformance(exerciseName);
             
@@ -776,8 +769,8 @@
         }
 
         function addSet(exIdx) {
-            // Přidání nové (prázdné) série znamená, že předchozí sérii máš
-            // hotovou a začínáš odpočívat před další.
+            // Přidání nové (prázdné) série = předchozí sérii máš hotovou,
+            // začínáš odpočívat před další.
             startResting();
 
             const lastSet = currentWorkout.exercises[exIdx].sets.slice(-1)[0];
